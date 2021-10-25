@@ -29,9 +29,13 @@ def resetArduinoSerial():
 def captureImage(path,subs1,subs2,cap,imgCounter,stage):
     ret, frame = cap.read()
     cv.imwrite(path+'/'+subs1+'a'+subs2+stage+str(imgCounter)+'.jpg',frame)
+    imgbytes = cv.imencode('.png', frame)[1].tobytes() #Convert to png encoded bytes
+    window['-image-'].update(data=imgbytes) #Update image canvas
    
 def measure():
     global cancel
+    global drain
+    global pauseDrain
     
     arduino = serial.Serial(port=comPort, baudrate=115200, timeout=10)
     waitWithCancel(10)
@@ -47,13 +51,18 @@ def measure():
     subs1 = "COMP1"
     subs2 = "COMP2"
     rep = int(values['-REP-'])
+    useSettling = values['-USESETTLTIME-']
     settlingTime = int(values['-SETTL-'])*60
     intervalTime = int(values['-INTERV-'])
     nDrainSteps = int(values['-DRSTEPS-'])
     imgCounter = 0
     
     #Other process parameters TODO: get from GUI or file
-    start = 0
+    with open('count.txt', "r") as counterFile:
+        start = int(counterFile.read())+1
+    print("Start number ", start)
+    
+    
     
     # Folder path for images
     cwd = os.getcwd()
@@ -63,11 +72,11 @@ def measure():
         if cancel:
             break
             
-        if not cancel:
-            arduino.write(bytes('r', 'utf-8'))
-            print("Refilling")
-            waitWithCancel(251)
-            print("Done Refilling")
+        #if not cancel: #Only for repeated measures
+            #arduino.write(bytes('r', 'utf-8'))
+            #print("Refilling")
+            #waitWithCancel(251)
+            #print("Done Refilling")
             
         
         if not cancel: 
@@ -89,6 +98,9 @@ def measure():
         fileRaw = open(fileNameRaw, "a")
         print("Created files")
         line  = 0
+        
+        with open('count.txt', "w") as counterFile:
+            counterFile.write(str(i+start))
     
         data = "A,B,C,D,E,F,G,H,I,J,K,L,R,S,T,U,V,W,Stage"
         file.write(data + "\n") #write data with a newline
@@ -103,10 +115,13 @@ def measure():
         print("Settling...")
         
         #Measure while settling
-        while not cancel and elapsed <= settlingTime:
+        while not cancel and (not drain and (elapsed <= settlingTime or not useSettling)):
             current = time.time()
             elapsedInterval = current - intervalStart
             elapsed = current-startTime
+            
+            settlingTime = int(values['-SETTL-'])*60
+            intervalTime = int(values['-INTERV-'])
         
             if elapsedInterval >= intervalTime:
                 #Take measure
@@ -137,12 +152,16 @@ def measure():
                 print('Measure taken after (s)',elapsedInterval)
                 elapsedInterval = 0
                 intervalStart = time.time()
-                
+        
+        drain = False
+        window['-DRAINBTN-'].update(disabled=True)
+        window['-PAUSEBTN-'].update(disabled=False)        
         print("Draining ....")        
                 
         for j in range(nDrainSteps):
             if cancel:
                 break
+                
             
             arduino.write(bytes('s', 'utf-8'))
             waitWithCancel(3)
@@ -170,6 +189,10 @@ def measure():
             file.write(data + "\n") #write data with a newline
             fileRaw.write(dataRaw + "\n") #write data with a newline
             
+            while not cancel and pauseDrain:
+                print('Paused ...')
+                waitWithCancel(0.5)
+            
         print("Logged "+str(line)+" lines in "+str(i))
         file.close()
         fileRaw.close()
@@ -182,6 +205,9 @@ def measure():
     else:
         print("Measure interrupted")
         cancel = False
+        pauseDrain = False
+        window['-PAUSEBTN-'].update('Pause Drain')
+        window['-PAUSEBTN-'].update(disabled=True)
 
     arduino.close()
     cap.release()
@@ -239,43 +265,54 @@ def cleanHoses():
     
     
 def disableAllButtons():
-    window['Measure'].update(disabled=True)
+    window['Measure Start'].update(disabled=True)
     window['Refill Funnel'].update(disabled=True)
     window['Empty Funnel'].update(disabled=True)
     window['Clean hoses'].update(disabled=True)
-    window['-SETTL-'].update(disabled=True)
-    window['-INTERV-'].update(disabled=True)
+    window['-SETTL-'].update(disabled=False)
+    window['-INTERV-'].update(disabled=False)
     window['-DRSTEPS-'].update(disabled=True)
     window['-REP-'].update(disabled=True)
+    window['-USESETTLTIME-'].update(disabled=True)
+
     
 def enableAllButtons():
-    window['Measure'].update(disabled=False)
+    window['Measure Start'].update(disabled=False)
     window['Refill Funnel'].update(disabled=False)
     window['Empty Funnel'].update(disabled=False)
     window['Clean hoses'].update(disabled=False)
     window['-SETTL-'].update(disabled=False)
     window['-INTERV-'].update(disabled=False)
     window['-DRSTEPS-'].update(disabled=False)
-    window['-REP-'].update(disabled=False)
+    window['-REP-'].update(disabled=True)
+    window['-USESETTLTIME-'].update(disabled=False)
+    window['-DRAINBTN-'].update(disabled=True)
+    window['-PAUSEBTN-'].update(disabled=True)
     
-    
-col = [[sg.Text('Settling time (min)'), sg.Slider(orientation ='horizontal', key='-SETTL-', range=(5,120))],
-       [sg.Text('Mesure interval when settling (s)'), sg.Slider(orientation ='horizontal', key='-INTERV-', range=(1,30),default_value=10)],
-       [sg.Text('Number of draining steps (ml)'), sg.Slider(orientation ='horizontal', key='-DRSTEPS-', range=(245,255),default_value=250)],
-       [sg.Text('Number of Repetitions'), sg.Slider(orientation ='horizontal', key='-REP-', range=(1,15))],
-       [sg.Button('Measure',size=(20,2), font='24'),sg.Button('Refill Funnel',size=(20,2), font='24')],
-       [sg.Button('Empty Funnel',size=(20,2), font='24'),sg.Button('Clean hoses',size=(20,2), font='24')]]    
 
     
-layout = [[sg.Column(col)],
-          [sg.Output(size=(80, 10),key='-OUTPUTLINES-')],
+    
+col = [[sg.Text('Settling time (min)'), sg.Slider(orientation ='horizontal', key='-SETTL-', range=(5,240),enable_events=True),sg.Checkbox('Use Settling time', default=True,key='-USESETTLTIME-')],
+       [sg.Text('Measure interval when settling (s)'), sg.Slider(orientation ='horizontal', key='-INTERV-', range=(2,120),default_value=30,enable_events=True)],
+       [sg.Text('Number of draining steps (ml)'), sg.Slider(orientation ='horizontal', key='-DRSTEPS-', range=(245,255),default_value=250)],
+       [sg.Text('Number of Repetitions'), sg.Slider(orientation ='horizontal', key='-REP-', range=(1,15),disabled = True)],
+       [sg.Button('Measure Start',size=(20,2), font='24'),sg.Button('Drain',size=(20,2), font='24',key='-DRAINBTN-',disabled = True)],
+       [sg.Button('Refill Funnel',size=(20,2), font='24'),sg.Button('Pause Drain',size=(20,2), font='24',key='-PAUSEBTN-',disabled = True)],
+       [sg.Button('Empty Funnel',size=(20,2), font='24'),sg.Button('Clean Hoses',size=(20,2), font='24')]]    
+
+    
+layout = [[sg.Column(col),sg.VerticalSeparator(),sg.Image(filename='', key='-image-')],
+          [sg.Output(size=(160, 10),key='-OUTPUTLINES-')],
           [sg.Cancel(size=(20,2), font='24'), sg.Exit(size=(20,2), font='24')]]
           
           
           
-window = sg.Window('Window that stays open', layout)
+window = sg.Window('LLE Detection', layout)
 
+drain = False
+pauseDrain = False
 cancel = False
+init = True
 while True:
     event, values = window.read()
     print(event, values)
@@ -292,9 +329,19 @@ while True:
         window.perform_long_operation(refillFunnel, '-OPERATION DONE-')
     if event.startswith('Measure'):
         disableAllButtons()
+        window['-DRAINBTN-'].update(disabled=False)
         window.perform_long_operation(measure, '-OPERATION DONE-')
     if event =='Cancel' :
         cancel = True
+    if event =='-DRAINBTN-' :
+        drain = True
+    if event =='-PAUSEBTN-' :
+        if pauseDrain:
+            pauseDrain = False
+            window['-PAUSEBTN-'].update('Pause Drain')
+        else:
+            pauseDrain = True
+            window['-PAUSEBTN-'].update('Continue Drain')
     if event == '-OPERATION DONE-':
         enableAllButtons()
     

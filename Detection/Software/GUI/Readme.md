@@ -7,11 +7,11 @@ pip3 install pysimplegui
 
 For the GUI to work correctly the arduino code in the dataloggerA sketch in 'Electronics/Arduino/' in this same repository must be downloaded to the arduino board in the LLE device
 
-#GUI
+# GUI
 
 The different controls of the GUI are explained in the followinf sections:
 
-##Sliders
+## Sliders
 
 The sliders are used to set the different parameters of the datalogging task before starting, by default the repetitions slider is frozen at a value of 1.
 All sliders are disabled when any action is started (Button pressed) with the exception of the settling time and the measure interval which can be changed on the fly after starting to measure.

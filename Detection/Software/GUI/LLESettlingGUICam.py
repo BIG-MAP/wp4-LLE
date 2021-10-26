@@ -29,6 +29,7 @@ def resetArduinoSerial():
 def captureImage(path,subs1,subs2,cap,imgCounter,stage):
     ret, frame = cap.read()
     cv.imwrite(path+'/'+subs1+'a'+subs2+stage+str(imgCounter)+'.jpg',frame)
+    frame = cv.resize(frame, (200, 150))
     imgbytes = cv.imencode('.png', frame)[1].tobytes() #Convert to png encoded bytes
     window['-image-'].update(data=imgbytes) #Update image canvas
    
@@ -298,7 +299,7 @@ col = [[sg.Text('Settling time (min)'), sg.Slider(orientation ='horizontal', key
        [sg.Text('Number of Repetitions'), sg.Slider(orientation ='horizontal', key='-REP-', range=(1,15),disabled = True)],
        [sg.Button('Measure Start',size=(20,2), font='24'),sg.Button('Drain',size=(20,2), font='24',key='-DRAINBTN-',disabled = True)],
        [sg.Button('Refill Funnel',size=(20,2), font='24'),sg.Button('Pause Drain',size=(20,2), font='24',key='-PAUSEBTN-',disabled = True)],
-       [sg.Button('Empty Funnel',size=(20,2), font='24'),sg.Button('Clean Hoses',size=(20,2), font='24')]]    
+       [sg.Button('Empty Funnel',size=(20,2), font='24'),sg.Button('Clean hoses',size=(20,2), font='24')]]    
 
     
 layout = [[sg.Column(col),sg.VerticalSeparator(),sg.Image(filename='', key='-image-')],

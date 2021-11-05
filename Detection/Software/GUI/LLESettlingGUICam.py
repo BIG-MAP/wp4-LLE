@@ -103,7 +103,7 @@ def measure():
         with open('count.txt', "w") as counterFile:
             counterFile.write(str(i+start))
     
-        data = "A,B,C,D,E,F,G,H,I,J,K,L,R,S,T,U,V,W,Stage"
+        data = "A,B,C,D,E,F,G,H,I,J,K,L,R,S,T,U,V,W,Stage,Interval"
         file.write(data + "\n") #write data with a newline
         fileRaw.write(data + "\n") #write data with a newline
         
@@ -140,8 +140,8 @@ def measure():
             
                 line = line + 1
                 print(str(line))
-                data = data+',Settling'
-                dataRaw = dataRaw+',Settling'
+                data = data+',Settling, '+intervalTime
+                dataRaw = dataRaw+',Settling, '+intervalTime
                 
                 print(data)
                 print(dataRaw)
@@ -181,8 +181,8 @@ def measure():
             line = line + 1
             print(str(line))
             
-            data = data+',Draining'
-            dataRaw = dataRaw+',Draining'
+            data = data+',Draining, 3'
+            dataRaw = dataRaw+',Draining, 3'
             print(data)
             print(dataRaw)
 

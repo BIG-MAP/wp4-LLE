@@ -37,6 +37,7 @@ def measure():
     global cancel
     global drain
     global pauseDrain
+    global finishDrain
     
     arduino = serial.Serial(port=comPort, baudrate=115200, timeout=10)
     waitWithCancel(10)
@@ -113,6 +114,7 @@ def measure():
         elapsed = 0
         elapsedInterval = 0
         
+        window['-DRSTEPS-'].update(disabled=False)
         print("Settling...")
         
         #Measure while settling
@@ -153,46 +155,65 @@ def measure():
                 print('Measure taken after (s)',elapsedInterval)
                 elapsedInterval = 0
                 intervalStart = time.time()
+                
         
-        drain = False
-        window['-DRAINBTN-'].update(disabled=True)
-        window['-PAUSEBTN-'].update(disabled=False)        
-        print("Draining ....")        
+        while not cancel and not finishDrain:
+        
+            window['-DRAINBTN-'].update(disabled=True)
+            window['-PAUSEBTN-'].update(disabled=False)
+            window['-FINISHBTN-'].update(disabled=True)
+            window['-DRSTEPS-'].update(disabled=True)
+            nDrainSteps = int(values['-DRSTEPS-'])            
+             
+            print("Draining ....")
+            
+            for j in range(nDrainSteps):
+                if cancel:
+                    break
                 
-        for j in range(nDrainSteps):
-            if cancel:
-                break
                 
+                arduino.write(bytes('s', 'utf-8'))
+                waitWithCancel(3)
             
-            arduino.write(bytes('s', 'utf-8'))
-            waitWithCancel(3)
+                arduino.write(bytes('m', 'utf-8'))
+                #time.sleep(1)
+                getData= arduino.readline()
+                data = getData.decode('utf-8').rstrip()
             
-            arduino.write(bytes('m', 'utf-8'))
-            #time.sleep(1)
-            getData= arduino.readline()
-            data = getData.decode('utf-8').rstrip()
+                getData= arduino.readline()
+                dataRaw = getData.decode('utf-8').rstrip()
             
-            getData= arduino.readline()
-            dataRaw = getData.decode('utf-8').rstrip()
+                captureImage(imageFolderPath,subs1,subs2,cap,imgCounter,"Draining")
+                imgCounter = imgCounter + 1
             
-            captureImage(imageFolderPath,subs1,subs2,cap,imgCounter,"Draining")
-            imgCounter = imgCounter + 1
+                line = line + 1
+                print(str(line))
             
-            line = line + 1
-            print(str(line))
-            
-            data = data+',Draining, 3'
-            dataRaw = dataRaw+',Draining, 3'
-            print(data)
-            print(dataRaw)
+                data = data+',Draining, 3'
+                dataRaw = dataRaw+',Draining, 3'
+                print(data)
+                print(dataRaw)
 
-            #add the data to the files
-            file.write(data + "\n") #write data with a newline
-            fileRaw.write(dataRaw + "\n") #write data with a newline
+                #add the data to the files
+                file.write(data + "\n") #write data with a newline
+                fileRaw.write(dataRaw + "\n") #write data with a newline
             
-            while not cancel and pauseDrain:
-                print('Paused ...')
-                waitWithCancel(0.5)
+                while not cancel and pauseDrain:
+                    print('Paused ...')
+                    waitWithCancel(0.5)
+            
+            drain = False
+            window['-DRAINBTN-'].update(disabled=False)
+            window['-PAUSEBTN-'].update(disabled=True)
+            window['-FINISHBTN-'].update(disabled=False)
+            window['-DRSTEPS-'].update(disabled=False)
+            
+            
+            while not cancel and (not finishDrain and (not drain)):
+                print("Press drain again to drain a new amount, otherwise press Finish Draining")
+                print(drain)
+                waitWithCancel(1)
+                
             
         print("Logged "+str(line)+" lines in "+str(i))
         file.close()
@@ -203,10 +224,13 @@ def measure():
             
     if not cancel:
         print("Measure Finished")
+        finishDrain = False
     else:
         print("Measure interrupted")
         cancel = False
         pauseDrain = False
+        drain = False
+        finishDrain = False
         window['-PAUSEBTN-'].update('Pause Drain')
         window['-PAUSEBTN-'].update(disabled=True)
 
@@ -269,7 +293,7 @@ def disableAllButtons():
     window['Measure Start'].update(disabled=True)
     window['Refill Funnel'].update(disabled=True)
     window['Empty Funnel'].update(disabled=True)
-    window['Clean hoses'].update(disabled=True)
+    window['-FINISHBTN-'].update(disabled=True)
     window['-SETTL-'].update(disabled=False)
     window['-INTERV-'].update(disabled=False)
     window['-DRSTEPS-'].update(disabled=True)
@@ -281,7 +305,7 @@ def enableAllButtons():
     window['Measure Start'].update(disabled=False)
     window['Refill Funnel'].update(disabled=False)
     window['Empty Funnel'].update(disabled=False)
-    window['Clean hoses'].update(disabled=False)
+    window['-FINISHBTN-'].update(disabled=True)
     window['-SETTL-'].update(disabled=False)
     window['-INTERV-'].update(disabled=False)
     window['-DRSTEPS-'].update(disabled=False)
@@ -295,11 +319,11 @@ def enableAllButtons():
     
 col = [[sg.Text('Settling time (min)'), sg.Slider(orientation ='horizontal', key='-SETTL-', range=(5,240),enable_events=True),sg.Checkbox('Use Settling time', default=True,key='-USESETTLTIME-')],
        [sg.Text('Measure interval when settling (s)'), sg.Slider(orientation ='horizontal', key='-INTERV-', range=(2,120),default_value=30,enable_events=True)],
-       [sg.Text('Number of draining steps (ml)'), sg.Slider(orientation ='horizontal', key='-DRSTEPS-', range=(245,255),default_value=250)],
+       [sg.Text('Number of draining steps (ml)'), sg.Slider(orientation ='horizontal', key='-DRSTEPS-', range=(1,300),default_value=250)],
        [sg.Text('Number of Repetitions'), sg.Slider(orientation ='horizontal', key='-REP-', range=(1,15),disabled = True)],
        [sg.Button('Measure Start',size=(20,2), font='24'),sg.Button('Drain',size=(20,2), font='24',key='-DRAINBTN-',disabled = True)],
        [sg.Button('Refill Funnel',size=(20,2), font='24'),sg.Button('Pause Drain',size=(20,2), font='24',key='-PAUSEBTN-',disabled = True)],
-       [sg.Button('Empty Funnel',size=(20,2), font='24'),sg.Button('Clean hoses',size=(20,2), font='24')]]    
+       [sg.Button('Empty Funnel',size=(20,2), font='24'),sg.Button('Finish Draining',size=(20,2), font='24',key='-FINISHBTN-',disabled=True)]]    
 
     
 layout = [[sg.Column(col),sg.VerticalSeparator(),sg.Image(filename='', key='-image-')],
@@ -310,6 +334,7 @@ layout = [[sg.Column(col),sg.VerticalSeparator(),sg.Image(filename='', key='-ima
           
 window = sg.Window('LLE Detection', layout)
 
+finishDrain = False
 drain = False
 pauseDrain = False
 cancel = False
@@ -319,9 +344,10 @@ while True:
     print(event, values)
     if event in (sg.WIN_CLOSED, 'Exit'):
         break
-    if event.startswith('Clean'):
-        disableAllButtons()
-        window.perform_long_operation(cleanHoses, '-OPERATION DONE-')
+    if event == '-FINISHBTN-':
+        finishDrain = True
+        #disableAllButtons()
+        #window.perform_long_operation(cleanHoses, '-OPERATION DONE-')
     if event.startswith('Empty'):
         disableAllButtons()
         window.perform_long_operation(emptyFunnel, '-OPERATION DONE-')

@@ -1,0 +1,51 @@
+{
+  "Liquid 1": {
+    "Name": "Vegetable Oil",
+    "Composition":[
+      "Vegetable Oil"
+      ],
+    "Quantities":[
+      "30 ml"
+      ]
+  },
+  "Liquid 2":{
+    "Name": "Yellow Ink Water",
+    "Composition":[
+      "Water",
+      "Yellow ink Ecolin No 38",
+      "Yellow ink Ecolin No 16"
+      ],
+    "Quantities":[
+      "80 ml",
+      "0.1 ml",
+      "0.05 ml"
+      ]
+  },
+  "Emulsifier":{
+      "Name": "Liquid Dishwasher soap",
+      "Composition":[
+        "Cascade original liquid dishwasher soap"
+      ],
+      "Quantities":[
+        "0.4 ml"
+      ]
+  },
+  "Samples": 10,
+  "Camera position": "Next to Funnel 30ml",
+  "Light Source": {
+    "Position":"Back",
+    "Color": "White",
+    "Type": "LED",
+    "WaveLength(nm)": [450,700],
+    "Diffused": true,
+    "Quantity":2
+  },
+  "Sensor":{
+    "Type": "Photoelectric",
+    "Name":"Sparkfun Spectroscopy triad",
+    "Channels":"Infrared"
+  },
+  "Funnel Vendor":"Labscient",
+  "Funnel Volume(ml)": 250,
+  "Dosing pump displacement step(ml)": 1
+}

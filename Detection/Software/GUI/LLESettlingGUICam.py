@@ -7,7 +7,7 @@ import PySimpleGUI as sg
 
 if os.name == 'nt':
     comPort = "COM8"
-    cameraDev = 0
+    cameraDev = 1
 else:
     comPort = '/dev/ttyUSB0'
     cameraDev = '/dev/video0'
@@ -29,7 +29,7 @@ def resetArduinoSerial():
 def captureImage(path,subs1,subs2,cap,imgCounter,stage):
     ret, frame = cap.read()
     cv.imwrite(path+'/'+subs1+'a'+subs2+stage+str(imgCounter)+'.jpg',frame)
-    frame = cv.resize(frame, (200, 150))
+    frame = cv.resize(frame, (250, 250))
     imgbytes = cv.imencode('.png', frame)[1].tobytes() #Convert to png encoded bytes
     window['-image-'].update(data=imgbytes) #Update image canvas
    
@@ -142,8 +142,8 @@ def measure():
             
                 line = line + 1
                 print(str(line))
-                data = data+',Settling, '+intervalTime
-                dataRaw = dataRaw+',Settling, '+intervalTime
+                data = data+',Settling, '+str(intervalTime)
+                dataRaw = dataRaw+',Settling, '+str(intervalTime)
                 
                 print(data)
                 print(dataRaw)

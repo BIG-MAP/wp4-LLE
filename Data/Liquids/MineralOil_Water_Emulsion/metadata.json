@@ -1,0 +1,47 @@
+{
+  "Liquid 1": {
+    "Name": "Mineral Oil",
+    "Composition":[
+      "Mineral Oil"
+      ],
+    "Quantities":[
+      "30 ml"
+      ]
+  },
+  "Liquid 2":{
+    "Name": "Water",
+    "Composition":[
+      "Water"
+      ],
+    "Quantities":[
+      "80 ml"
+      ]
+  },
+  "Emulsifier":{
+      "Name": "Liquid Dishwasher soap",
+      "Composition":[
+        "Cascade original liquid dishwasher soap"
+      ],
+      "Quantities":[
+        "0.4 ml"
+      ]
+  },
+  "Samples": 10,
+  "Camera position": "Next to Funnel 30ml",
+  "Light Source": {
+    "Position":"Back",
+    "Color": "White",
+    "Type": "LED",
+    "WaveLength(nm)": [450,700],
+    "Diffused": true,
+    "Quantity":2
+  },
+  "Sensor":{
+    "Type": "Photoelectric",
+    "Name":"Sparkfun Spectroscopy triad",
+    "Channels":"Infrared"
+  },
+  "Funnel Vendor":"Labscient",
+  "Funnel Volume(ml)": 250,
+  "Dosing pump displacement step(ml)": 1
+}

@@ -33,7 +33,8 @@ void setup() {
   digitalWrite(in3, HIGH);
   digitalWrite(in4, LOW);
   analogWrite(enB, 0);
-
+  
+  //Serial.println("Checking sensor");
   if(sensor.begin() == false)
   {
     Serial.println("Sensor does not appear to be connected. Please check wiring. Freezing...");
@@ -60,47 +61,47 @@ void loop() {
      analogWrite(enA, 0);
      delay(1500);
     
-     sensor.takeMeasurements();
-  
-     Serial.print(sensor.getCalibratedA());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedB());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedC());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedD());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedE());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedF());
-     Serial.print(",");
-
-     Serial.print(sensor.getCalibratedG());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedH());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedI());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedJ());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedK());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedL());
-     Serial.print(",");
-
-     Serial.print(sensor.getCalibratedR());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedS());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedT());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedU());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedV());
-     Serial.print(",");
-     Serial.print(sensor.getCalibratedW());
-     Serial.print(",");
-     Serial.println();
+//     sensor.takeMeasurements();
+//  
+//     Serial.print(sensor.getCalibratedA());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedB());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedC());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedD());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedE());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedF());
+//     Serial.print(",");
+//
+//     Serial.print(sensor.getCalibratedG());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedH());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedI());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedJ());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedK());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedL());
+//     Serial.print(",");
+//
+//     Serial.print(sensor.getCalibratedR());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedS());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedT());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedU());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedV());
+//     Serial.print(",");
+//     Serial.print(sensor.getCalibratedW());
+//     Serial.print(",");
+//     Serial.println();
 
   }
   Serial.println("end");

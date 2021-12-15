@@ -1,0 +1,41 @@
+{
+  "Liquid 1": {
+    "Name": "Black Oil",
+    "Composition":[
+      "Linseed oil",
+      "Black oil paint No 104 "
+      ],
+    "Quantities":[
+      "30 ml",
+      "0.166 gr"
+      ]
+  },
+  "Liquid 2":{
+    "Name": "Sugar Solution",
+    "Composition":[
+      "Sugar Solution (Malted Drink)"
+      ],
+    "Quantities":[
+      "80 ml"
+      ]
+  },
+  "Emulsifier":null,
+  "Samples": 10,
+  "Camera position": "Next to Funnel 30ml",
+  "Light Source": {
+    "Position":"Back",
+    "Color": "White",
+    "Type": "LED",
+    "WaveLength(nm)": [450,700],
+    "Diffused": true,
+    "Quantity":2
+  },
+  "Sensor":{
+    "Type": "Photoelectric",
+    "Name":"Sparkfun Spectroscopy triad",
+    "Channels":"Infrared"
+  },
+  "Funnel Vendor":"Labscient",
+  "Funnel Volume(ml)": 250,
+  "Dosing pump displacement step(ml)": 1
+}

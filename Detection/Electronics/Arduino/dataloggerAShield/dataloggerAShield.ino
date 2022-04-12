@@ -14,12 +14,14 @@ AS7265X sensor;
 char x;
 
 int lastReading = 0;
-int sensorPin = A0;
+int sensorPin = A5;
 
 
 void setup() {
 
   pinMode(LED_BUILTIN, OUTPUT);
+
+  pinMode(sensorPin, INPUT);
   
   pinMode(PWMA, OUTPUT);
   pinMode(DIRA, OUTPUT);
@@ -157,6 +159,7 @@ void loop() {
 void measure(){
 
      sensor.takeMeasurements();
+     lastReading = analogRead(sensorPin);
      
      Serial.print(sensor.getCalibratedA());
      Serial.print(",");
@@ -195,6 +198,8 @@ void measure(){
      Serial.print(sensor.getCalibratedV());
      Serial.print(",");
      Serial.print(sensor.getCalibratedW());
+     Serial.print(",");
+     Serial.print(lastReading);
      Serial.println();
 
      Serial.print(sensor.getA());
@@ -234,5 +239,7 @@ void measure(){
      Serial.print(sensor.getV());
      Serial.print(",");
      Serial.print(sensor.getW());
+     Serial.print(",");
+     Serial.print(lastReading);
      Serial.println();
 }

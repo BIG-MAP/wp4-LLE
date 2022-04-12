@@ -6,7 +6,7 @@ import os
 import PySimpleGUI as sg
 
 if os.name == 'nt':
-    comPort = "COM8"
+    comPort = "COM3"
     cameraDev = 1
 else:
     comPort = '/dev/ttyUSB0'
@@ -104,7 +104,7 @@ def measure():
         with open('count.txt', "w") as counterFile:
             counterFile.write(str(i+start))
     
-        data = "A,B,C,D,E,F,G,H,I,J,K,L,R,S,T,U,V,W,Stage,Interval"
+        data = "A,B,C,D,E,F,G,H,I,J,K,L,R,S,T,U,V,W,Res,Stage,Interval"
         file.write(data + "\n") #write data with a newline
         fileRaw.write(data + "\n") #write data with a newline
         

@@ -1,0 +1,7 @@
+numpy==1.19.5
+asyncio==3.4.3
+pandas==sudo apt-get install python3-scipy
+scipy==sudo apt-get install python3-pandas
+PyCmdMessenger==0.2.4
+pyserial==3.5b0
+opencv=sudo apt-get install python3-opencv

@@ -123,7 +123,8 @@ void loop() {
 
  if(x == 'r'){
      analogWrite(enB, 200);
-     delay(250000);
+     //delay(250000);
+     delay(9000);
      analogWrite(enB, 0);
      delay(1000);
  }

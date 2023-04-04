@@ -26,7 +26,7 @@ countFilePath = "count.txt"
 funnelScanned  = True
 lowerPhaseDrained = False
 pumpDirection = False
-conversionFactor = 66/100
+conversionFactor = 1/1.5 #66/100
 
 
 #Driver Initialization
@@ -298,30 +298,65 @@ async def drain(portLower: int, portUpper: int) -> str:
 def stopPump():
     DrainDriver.stopDraining()
 
+#Calculate the ml resting given a list of limits for different stages 
+def calculateDrainStages(drainLimits: list, mlToDrain: float)-> list:
+    drainStages = []
+
+    rest = mlToDrain
+
+    for i in range(len(drainLimits)):
+        if rest >= drainLimits[i]:
+            drainStages.append(rest - drainLimits[i])
+            rest = drainLimits[i]
+        else:
+            drainStages.append(0)
+
+    return drainStages
+
 
 #Drain lower phase
 async def drainLowerPhase(port: int,interfacePosition:float) -> str:
     global lowerPhaseDrained, pumpDirection
+
+
     #Convert the interface position in a number of ml to drain
     mlToDrain = getVolumeLowerPhase(interfacePosition)
-    
-    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain)
-     
-    logging.info("interfacePosition = " + str(interfacePosition))
-    logging.info("mlToDrain = " + str(mlToDrain))
-    logging.info("secondsToDrain = " + str(secondsToDrain))
+
+    #Divide the volume in 5 parts and reduce the speed by 20% for each part
+
+    drainLimits = [450,200,100,50,0]
+
+    drainStages = calculateDrainStages(drainLimits,mlToDrain)
+
+    stageSpeed = [255,204,153,102,51]
+
+    # drainSpeeds = []
+    # drainSpeeds[0] = 255 # 1
+    # drainSpeeds[1] = 153 #0.6
+    # drainSpeeds[2] = 102 #0.4
+    # drainSpeeds[3] = 51 #0.2
 
     try:
         moveValveToPort(port)
         if not pumpDirection:
             DrainDriver.changePumpDirection()
             pumpDirection = not pumpDirection
+        
+        for i in range(len(drainStages)):
+            
+            secondsToDrain, conversionFactor = convertMlToSeconds(drainStages[i])
 
-        DrainDriver.drainSpeed(255)
-        await asyncio.sleep(secondsToDrain)#66 around 100ml
-        DrainDriver.stopDraining()
-        #DrainDriver.setMlPerDrainStep(mlToDrain)
-        #DrainDriver.drainStep()
+            secondsToDrain = secondsToDrain*(255/stageSpeed[i])
+     
+            logging.info("interfacePosition = " + str(interfacePosition))
+            logging.info("mlToDrain = " + str(drainStages[i]))
+            logging.info("secondsToDrain = " + str(secondsToDrain))
+
+            DrainDriver.drainSpeed(stageSpeed[i])
+            await asyncio.sleep(secondsToDrain)#66 around 100ml
+            DrainDriver.stopDraining()
+            #DrainDriver.setMlPerDrainStep(mlToDrain)
+            #DrainDriver.drainStep()
 
         lowerPhaseDrained = True
     except serial.SerialException as e:
@@ -408,6 +443,24 @@ def getSensorDataRaw(idN: int):
         return None
 
 
+async def pumpMlFromPort(ml: float, port :int , tubingVolume:float):
+    global pumpDirection
+
+    secondsToPump, conversionFactor = convertMlToSeconds(ml+tubingVolume)
+    logging.info("mlToPump = " + str(ml))
+    logging.info("secondsToPump = " + str(secondsToPump))
+
+    moveValveToPort(port)
+
+    if pumpDirection:
+        DrainDriver.changePumpDirection()
+        pumpDirection = not pumpDirection
+    
+    DrainDriver.drainSpeed(255)
+    await asyncio.sleep(secondsToPump)#66 around 100ml
+    DrainDriver.stopDraining()
+
+    return port, ml, conversionFactor, secondsToPump, ""
 
 
 async def drainMlToPort(ml: float,port: int):

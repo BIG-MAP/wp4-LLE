@@ -72,6 +72,11 @@ class DataDrain(BaseModel):
     conversionFactorUpper: Union[float,None] = Field(default = None, title = "The conversion factor", description = "The calibration conversion factor from ml to seconds", example = 0.66)
     secondsUpper: Union[float, None] = Field(default=None, title = "The seconds to drain", description = "The result of converting ml to seconds", example = 100.0)
 
+class DataPump(BaseModel):
+    mlToPump:  Union[float,None] = Field(default = None, title = "A number of ml to pump", description = "The number of ml to pump", gt = 0, example = 100.0)
+    conversionFactor:  Union[float,None] = Field(default = None, title = "The conversion factor", description = "The calibration conversion factor from ml to seconds", example = 0.66)
+    secondsToPump: Union[float, None] = Field(default=None, title = "The seconds to pump", description = "The result of converting ml to seconds", example = 100.0)
+
 class DataSettling(BaseModel):
     start: int = -1
     finish: int = -1
@@ -81,6 +86,7 @@ class LLEOutputs(BaseModel):
     interfaceResult: Union[DataInterface,None] = None
     drainResult: Union[DataDrain,None] = None
     settlingResult: Union[DataSettling,None] = None
+    pumpResult: Union[DataPump,None] = None
 
 class Settings(BaseModel):
     settlingSettings: SettlingSettings = SettlingSettings()
@@ -242,6 +248,18 @@ class LiquidExtractor:
         self.results.drainResult = DataDrain(mlToDrainLower = mlToDrain,conversionFactorLower= conversionFactor,secondsLower=secondsToDrain)
         self.status = Status.finished
 
+    def startPumpFromPort(self,ml,port):
+        print("Starting pump")
+        self.stopEvent.clear()
+        self.status = Status.running
+        self.runningTask = asyncio.run_coroutine_threadsafe(self.runPumpMlFromPort(ml,port), backLoop)
+
+    async def runPumpMlFromPort(self,ml,port):
+        print("Running pump ml from port")
+        portPumped, mlToPump, conversionFactor, secondsToPump, error = await LLEProc.pumpMlFromPort(ml,port,0)
+        self.results.pumpResult = DataPump(mlToPump= mlToPump,conversionFactor = conversionFactor,secondsToPump=secondsToPump)
+        self.status = Status.finished
+
 
 #Create app
 app = FastAPI()
@@ -311,6 +329,12 @@ def getSensorData(item_id: int):
 @app.get("/drainToPort/{port}/{ml}",response_model=Response)
 def get_drainToPort(port: int, ml: float,background_tasks: BackgroundTasks):
     background_tasks.add_task(extractor.startDrainToPort,ml,port)
+    return Response(status=extractor.status, settings=extractor.settings)
+
+#Get /imageData Procedures
+@app.get("/pumpFromPort/{port}/{ml}",response_model=Response)
+def get_pumpFromPort(port: int, ml: float,background_tasks: BackgroundTasks):
+    background_tasks.add_task(extractor.startPumpFromPort,ml,port)
     return Response(status=extractor.status, settings=extractor.settings)
 
 #LLE Scan and Find requests

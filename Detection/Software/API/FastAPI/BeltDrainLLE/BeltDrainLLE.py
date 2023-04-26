@@ -20,6 +20,7 @@ class Status(Enum):
     running = "running"
     finished = "finished"
     stopped = "stopped"
+    error = "error"
 
 def start_background_loop(loop: asyncio.AbstractEventLoop) -> None:
     asyncio.set_event_loop(loop)
@@ -54,7 +55,14 @@ class DetectionSettings(BaseModel):
 class DrainSettings(BaseModel):
     portLower: int = Field(1, title = "A port number", description = "The port number to drain the lower phase to", gt = 0, le=4, example = 1)
     portUpper: int = Field(2, title = "A port number", description = "The port number to drain the upper phase to", gt = 0, le=4, example = 1)
-    mlToDrainUpper: Union[float,None] = Field(default = 500, title = "A number of ml", description = "The number of ml to drain", gt = 0, example = 100.0) 
+    mlToDrainUpper: Union[float,None] = Field(default = 500, title = "A number of ml", description = "The number of ml to drain", gt = 0, example = 100.0)
+
+class Settings(BaseModel):
+    settlingSettings: SettlingSettings = SettlingSettings()
+    scanSettings: ScanSettings = ScanSettings()
+    detectionSettings: DetectionSettings = DetectionSettings()
+    drainSettings: DrainSettings = DrainSettings()
+
     
 class DataLightSensor(BaseModel):    
     data: list[list[float]] = Field([], title= "The data obtained")
@@ -88,17 +96,15 @@ class LLEOutputs(BaseModel):
     settlingResult: Union[DataSettling,None] = None
     pumpResult: Union[DataPump,None] = None
 
-class Settings(BaseModel):
-    settlingSettings: SettlingSettings = SettlingSettings()
-    scanSettings: ScanSettings = ScanSettings()
-    detectionSettings: DetectionSettings = DetectionSettings()
-    drainSettings: DrainSettings = DrainSettings()
-
-class Response(BaseModel):
+class ResultsResponse(BaseModel):
     status: Status
-    settings: Union[Settings,None] = None
     results:  Union[LLEOutputs,None] = None
     error: Union[str,None] = None
+
+class StatusResponse(BaseModel):
+    status: Status
+
+
 
 backLoop = asyncio.new_event_loop()
 
@@ -127,13 +133,12 @@ class LiquidExtractor:
         self.settings = settings
         self.status = Status.running
         #self.runningTask = self._loop.create_task(self.runDrainExp(settings))
-        self.runningTask = asyncio.run_coroutine_threadsafe(self.runSettlingExp(settings), backLoop)
+        self.runningTask = asyncio.run_coroutine_threadsafe(self.runSettlingExp(), backLoop)
         #self.runningTask = asyncio.to_thread(self.runDrainExp(settings))
         #print(asyncio.all_tasks(self._loop))
 
-    async def runSettlingExp(self,settings):
+    async def runSettlingExp(self):
         print("Running settling experiment")
-        self.settings = settings
         self.status = Status.running
         self.results.settlingResult = DataSettling()
         self.error = ""
@@ -157,47 +162,22 @@ class LiquidExtractor:
         self.results.settlingResult.finish = idN
         self.status = Status.finished
 
-    def startDrainExp(self,settings):
+    def startDrainExp(self,lType,settings):
         print("Starting drain experiment")
         self.stopEvent.clear()
         self.settings = settings
         self.status = Status.running
         #self.runningTask = self._loop.create_task(self.runDrainExp(settings))
-        self.runningTask = asyncio.run_coroutine_threadsafe(self.runDrainExp(settings), backLoop)
+        self.runningTask = asyncio.run_coroutine_threadsafe(self.runDrainExp(lType), backLoop)
         #self.runningTask = asyncio.to_thread(self.runDrainExp(settings))
         #print(asyncio.all_tasks(self._loop))
 
-    
-    def startScanAndFind(self,settings):
-        print("Starting scan and find")
-        self.stopEvent.clear()
-        self.settings = settings
-        self.status = Status.running
-        #self.runningTask = self._loop.create_task(self.runDrainExp(settings))
-        self.runningTask = asyncio.run_coroutine_threadsafe(self.runScanAndFind(settings), backLoop)
-        #self.runningTask = asyncio.to_thread(self.runDrainExp(settings))
-        #print(asyncio.all_tasks(self._loop))
-
-
-    async def runScanAndFind(self,settings):
-        print("Running scan and Find")
-        self.error = ""
-        dataLight, dataLightRaw,_, error = LLEProc.scanFunnel(self.settings.scanSettings.initialLEDs,self.settings.scanSettings.deltaLEDs,self.settings.scanSettings.travelDistance,self.stopEvent)
-        #dataLight.loc[0,'A'] = 0.00
-        #print(dataLight.info())
-        if error != "":
-            self.error = self.error + ", " + error
-        interfaceFound, interfacePosition, error = LLEProc.findInterface(dataLight,self.settings.detectionSettings.smoothWindowSize,self.settings.detectionSettings.smoothProminence,self.settings.detectionSettings.gradient2Prominence)
-        if error != "":
-            self.error = self.error + ", " + error
-
-        self.results.sensorResult = DataLightSensor(data = dataLight.to_numpy().tolist(),dataRaw = dataLightRaw.to_numpy().tolist())
-        self.results.interfaceResult = DataInterface(interfaceFound = interfaceFound,interfacePosition = interfacePosition)
-        self.status = Status.finished
-
-    async def runDrainExp(self,settings):
+    async def runDrainExp(self,lType):
         print("Running drain experiment")
         self.error = ""
+        
+        LLEProc.setLiquidType(lType)
+
         dataLight, dataLightRaw,_, error = LLEProc.scanFunnel(self.settings.scanSettings.initialLEDs,self.settings.scanSettings.deltaLEDs,self.settings.scanSettings.travelDistance,self.stopEvent)
         #dataLight.loc[0,'A'] = 0.00
         #print(dataLight.info())
@@ -230,6 +210,37 @@ class LiquidExtractor:
             self.results.drainResult = DataDrain()    
             self.status = Status.finished
 
+    
+    def startScanAndFind(self,lType,settings):
+        print("Starting scan and find")
+        self.stopEvent.clear()
+        self.settings = settings
+        self.status = Status.running
+        self.runningTask = asyncio.run_coroutine_threadsafe(self.runScanAndFind(lType), backLoop)
+        #print(asyncio.all_tasks(self._loop))
+
+
+    async def runScanAndFind(self,lType):
+        print("Running scan and Find")
+        self.error = ""
+
+        LLEProc.setLiquidType(lType)
+
+        dataLight, dataLightRaw,_, error = LLEProc.scanFunnel(self.settings.scanSettings.initialLEDs,self.settings.scanSettings.deltaLEDs,self.settings.scanSettings.travelDistance,self.stopEvent)
+        #dataLight.loc[0,'A'] = 0.00
+        #print(dataLight.info())
+        if error != "":
+            self.error = self.error + ", " + error
+        interfaceFound, interfacePosition, error = LLEProc.findInterface(dataLight,self.settings.detectionSettings.smoothWindowSize,self.settings.detectionSettings.smoothProminence,self.settings.detectionSettings.gradient2Prominence)
+        if error != "":
+            self.error = self.error + ", " + error
+
+        self.results.sensorResult = DataLightSensor(data = dataLight.to_numpy().tolist(),dataRaw = dataLightRaw.to_numpy().tolist())
+        self.results.interfaceResult = DataInterface(interfaceFound = interfaceFound,interfacePosition = interfacePosition)
+        self.status = Status.finished
+
+    
+
     def returnSensorData(self,idN: int):
         print("Returning sensor data with id: "+str(idN))
         df = LLEProc.getSensorData(idN)
@@ -260,6 +271,70 @@ class LiquidExtractor:
         self.results.pumpResult = DataPump(mlToPump= mlToPump,conversionFactor = conversionFactor,secondsToPump=secondsToPump)
         self.status = Status.finished
 
+    def startDrainUpperToPort(self,port):
+        print("Starting drain upper layer to port")
+        self.stopEvent.clear()
+        self.status = Status.running
+        self.runningTask = asyncio.run_coroutine_threadsafe(self.runDrainUpperToPort(port), backLoop)
+
+    async def runDrainUpperToPort(self,port):
+        print("Running drain upper layer to port")
+        _ , mlToDrainUpper, conversionFactorUpper, secondsToDrainUpper, error = await LLEProc.drainUpperPhase(port)
+        if error != "":
+            self.error = self.error + ", " + error
+        self.results.drainResult = DataDrain(mlToDrainUpper=mlToDrainUpper,conversionFactorUpper=conversionFactorUpper,secondsUpper=secondsToDrainUpper)
+        self.status = Status.finished
+
+    def startDrainLowerToPort(self,port,interfacePosition):
+        print("Starting drain lower layer to port")
+        self.stopEvent.clear()
+        self.status = Status.running
+        self.runningTask = asyncio.run_coroutine_threadsafe(self.runDrainLowerToPort(port,interfacePosition), backLoop)
+
+    async def runDrainLowerToPort(self,port,interfacePosition):
+        print("Running drain lower layer to port")
+        if interfacePosition != None:
+            _, mlToDrainLower, conversionFactorLower, secondsToDrainLower, error = await LLEProc.drainLowerPhase(port,interfacePosition)
+        elif self.results.interfaceResult != None:
+            _, mlToDrainLower, conversionFactorLower, secondsToDrainLower, error = await LLEProc.drainLowerPhase(port,self.results.interfaceResult.interfacePosition)
+        else:
+            error = "No interface position set to drain the lower layer"
+
+        if error != "":
+            self.error = self.error + ", " + error
+        self.results.drainResult = DataDrain(mlToDrainLower = mlToDrainLower,conversionFactorLower= conversionFactorLower,secondsLower=secondsToDrainLower)
+        self.status = Status.finished
+
+    def startMoveValveToPort(self,port):
+        print("Starting move valve to port")
+        self.stopEvent.clear()
+        self.status = Status.running
+        self.runningTask = asyncio.run_coroutine_threadsafe(self.runMoveValveToPort(port), backLoop)
+
+    async def runMoveValveToPort(self,port):
+        print("Running move valve to port")
+        valveCurrentPort = LLEProc.moveValveToPort(port)
+        if valveCurrentPort == -1:
+            error = "Valve could not reach port"
+        if error != "":
+            self.error = self.error + ", " + error
+        self.status = Status.finished
+
+    def startMovePump(self,speed,dir):
+        print("Starting move pump")
+        self.stopEvent.clear()
+        self.status = Status.running
+        self.runningTask = asyncio.run_coroutine_threadsafe(self.runMovePump(speed,dir), backLoop)
+
+    async def runMovePump(self,speed,dir):
+        print("Running move pump")
+        success = LLEProc.startPump(speed,dir)
+        if success != 1:
+            error = "Could not move pump"
+        if error != "":
+            self.error = self.error + ", " + error
+        self.status = Status.finished
+
 
 #Create app
 app = FastAPI()
@@ -281,74 +356,103 @@ async def rootPath():
     return {"name": "LLE",
             "Device id": 1}
 
+@app.post("/startSettling",response_model=StatusResponse)
+def post_Settling_start(settings: Settings = None, background_tasks: BackgroundTasks = None):
+    if settings == None:
+        settings = Settings()
+    if background_tasks != None:    
+        background_tasks.add_task(extractor.startSettlingExp,settings)
+    else:
+        return {"Message":"Background tasks not started"}
+    return StatusResponse(status=extractor.status)
 
-#Get LLE Drain request
-@app.get("/start/Drain",response_model=Response)
-async def do_DrainRun(background_tasks: BackgroundTasks):
-    settings = Settings()
-    background_tasks.add_task(extractor.startDrainExp,settings)
-    return Response(status=extractor.status, settings=extractor.settings)
-    
-@app.post("/start/Drain",response_model=Response)
-def post_start(settings: Settings,background_tasks: BackgroundTasks):
-    background_tasks.add_task(extractor.startDrainExp,settings)
-    return Response(status=extractor.status, settings=extractor.settings)
+@app.post("/startDraining/{lType}",response_model=StatusResponse)
+def post_start(lType: str,settings: Settings = None, background_tasks: BackgroundTasks = None):
+    if settings == None:
+        settings = Settings()
+    if background_tasks != None:
+        background_tasks.add_task(extractor.startDrainExp,lType,settings)
+    else:
+        return {"Message":"Background tasks not started"}
+    return StatusResponse(status=extractor.status)
+ 
 
-@app.get("/status",response_model=Response)
+@app.get("/status",response_model=StatusResponse)
 def get_status():
-    return Response(status=extractor.status, settings=extractor.settings)
+    return StatusResponse(status=extractor.status)
 
-@app.get("/stop",response_model=Response)
+@app.get("/stop",response_model=StatusResponse)
 def do_stop():
     extractor.stop()
-    return Response(status=extractor.status, settings=extractor.settings,error=extractor.error)
+    return StatusResponse(status=extractor.status)
 
-@app.get("/results",response_model=Response)
+@app.get("/results",response_model=ResultsResponse)
 def get_results():
-    return Response(status=extractor.status, settings=extractor.settings, results=extractor.results,error=extractor.error)
-
-#LLE Settling requests
-@app.get("/start/Settling",response_model=Response)
-async def do_Settling_Run(background_tasks: BackgroundTasks):
-    settings = Settings()
-    background_tasks.add_task(extractor.startSettlingExp,settings)
-    return Response(status=extractor.status, settings=extractor.settings)
-    
-@app.post("/start/Settling",response_model=Response)
-def post_Settling_start(settings: Settings,background_tasks: BackgroundTasks):
-    background_tasks.add_task(extractor.startSettlingExp,settings)
-    return Response(status=extractor.status, settings=extractor.settings)
-
-#Get /imageData Procedures
-@app.get("/sensorData/{item_id}",response_model=Response)
-def getSensorData(item_id: int):
-    df, dfRaw = extractor.returnSensorData(item_id)
-    return Response(status=extractor.status,results=LLEOutputs(sensorResult=DataLightSensor(data=df.to_numpy().tolist(),dataRaw=dfRaw.to_numpy().tolist())))
-
-#Get /imageData Procedures
-@app.get("/drainToPort/{port}/{ml}",response_model=Response)
-def get_drainToPort(port: int, ml: float,background_tasks: BackgroundTasks):
-    background_tasks.add_task(extractor.startDrainToPort,ml,port)
-    return Response(status=extractor.status, settings=extractor.settings)
-
-#Get /imageData Procedures
-@app.get("/pumpFromPort/{port}/{ml}",response_model=Response)
-def get_pumpFromPort(port: int, ml: float,background_tasks: BackgroundTasks):
-    background_tasks.add_task(extractor.startPumpFromPort,ml,port)
-    return Response(status=extractor.status, settings=extractor.settings)
+    return ResultsResponse(status=extractor.status, results=extractor.results,error=extractor.error)
 
 #LLE Scan and Find requests
-@app.get("/start/ScanFind",response_model=Response)
-async def do_ScanFind_Run(background_tasks: BackgroundTasks):
+@app.get("/startScanFind/{lType}",response_model=StatusResponse)
+async def do_ScanFind_Run(lType: str, background_tasks: BackgroundTasks):
     settings = Settings()
-    background_tasks.add_task(extractor.startScanAndFind,settings)
-    return Response(status=extractor.status, settings=extractor.settings)
+    background_tasks.add_task(extractor.startScanAndFind,lType,settings)
+    return StatusResponse(status=extractor.status)
+
+@app.get("/drainToPort/{port}/{ml}",response_model=StatusResponse)
+def get_drainToPort(port: int, ml: float,background_tasks: BackgroundTasks):
+    background_tasks.add_task(extractor.startDrainToPort,ml,port)
+    return StatusResponse(status=extractor.status)
 
 #Get /imageData Procedures
-@app.get("/imageData/{id}")
-async def getImageData(id: int):
-    pass
-    # imageFolderPath = await LLEProc.getImageData()
-    # return {"imageData": returnJson}
-#Get the last image data obtained when scanning the interface
+@app.get("/pumpFromPort/{port}/{ml}",response_model=StatusResponse) 
+def get_pumpFromPort(port: int, ml: float,background_tasks: BackgroundTasks):
+    background_tasks.add_task(extractor.startPumpFromPort,ml,port)
+    return StatusResponse(status=extractor.status)
+
+@app.get("/DrainLowerLayer/{port}",response_model=StatusResponse) #/DrainLowerLayer/{port}?50.3
+async def do_DrainLowerToPort(port: int, intPos: Union[float,None] = None, background_tasks: BackgroundTasks = None):
+    background_tasks.add_task(extractor.startDrainLowerToPort,port, intPos)
+    return StatusResponse(status=extractor.status)
+
+@app.get("/DrainUpperLayer/{port}",response_model=StatusResponse)
+async def do_DrainUpperToPort(port: int, background_tasks: BackgroundTasks):
+    background_tasks.add_task(extractor.startDrainUpperToPort,port)
+    return StatusResponse(status=extractor.status)
+
+@app.get("/moveValve/{port}",response_model=StatusResponse)
+async def do_MoveValveToPort(port: int, background_tasks: BackgroundTasks):
+    background_tasks.add_task(extractor.startMoveValveToPort,port)
+    return StatusResponse(status=extractor.status)
+
+@app.get("/movePump/{speed}/{dir}",response_model=StatusResponse)
+async def do_MovePump(speed: int, dir: bool, background_tasks: BackgroundTasks):
+    background_tasks.add_task(extractor.startMovePump,speed,dir)
+    return StatusResponse(status=extractor.status)
+
+
+#LLE Settling requests
+# @app.get("/start/Settling",response_model=Response)
+# async def do_Settling_Run(background_tasks: BackgroundTasks):
+#     settings = Settings()
+#     background_tasks.add_task(extractor.startSettlingExp,settings)
+#     return Response(status=extractor.status, settings=extractor.settings)
+    
+
+@app.get("/sensorData/{item_id}",response_model=ResultsResponse)
+def getSensorData(item_id: int):
+    df, dfRaw = extractor.returnSensorData(item_id)
+    return ResultsResponse(status=extractor.status,results=LLEOutputs(sensorResult=DataLightSensor(data=df.to_numpy().tolist(),dataRaw=dfRaw.to_numpy().tolist())))
+
+
+
+# #Get /imageData Procedures
+# @app.get("/imageData/{id}")
+# async def getImageData(id: int):
+#     pass
+#     # imageFolderPath = await LLEProc.getImageData()
+#     # return {"imageData": returnJson}
+# #Get the last image data obtained when scanning the interface
+
+
+
+
 

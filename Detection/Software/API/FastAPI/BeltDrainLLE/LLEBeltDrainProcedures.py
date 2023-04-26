@@ -4,19 +4,25 @@ import os
 import logging
 import pandas as pd
 import asyncio
-
-import numpy as np
-from scipy import ndimage
-import scipy.signal as sig
 import scipy.stats as stat
 import math
+
+from enum import Enum
 
 #Import drivers
 from Drivers.BeltSensorCmd import BeltSensorDriverCmd as BeltDriver
 from Drivers.DrainingAndRotaryCmd import DrainingAndRotaryCmdDriver as DrainDriver
 from Drivers.CameraDriver import CameraDriver as CamDriver
 
+#Import interface finding algorithms
+import InterfaceAlg
+
 logging.basicConfig(level=logging.DEBUG)
+
+class LiquidType(Enum):
+    ethyl = "ethyl"
+    dichloro = "dichloro"
+    water = "water"
 
 #Global data
 interfacePosition = 0.0
@@ -27,6 +33,7 @@ funnelScanned  = True
 lowerPhaseDrained = False
 pumpDirection = False
 conversionFactor = 1/1.5 #66/100
+liquidType = LiquidType.ethyl
 
 
 #Driver Initialization
@@ -80,9 +87,17 @@ def convertMlToSeconds(mlToDrain: float)-> float:
     global conversionFactor
     return mlToDrain*conversionFactor, conversionFactor
 
-
-
 #Main functions
+
+def setLiquidType(lType):
+    global liquidType
+    if lType in LiquidType.__members__:
+        for name in LiquidType.__members__:
+            if lType == name:
+                liquidType = LiquidType[name]
+    else:
+        print("Not a valid liquid type") 
+
 
 #Move to port
 def moveValveToPort(target_port_id: int)-> int:
@@ -203,88 +218,20 @@ def scanFunnel(initialLEDs: int,delta: int,travelDistance: int, stopEvent: async
 
 #Find interface
 def findInterface(dataLight, smoothWindowSize: int, smoothProminence: float, gradient2Prominence:float):
-    #TODO: Update with minima detection
 
     global funnelScanned, interfacePosition
     if(funnelScanned):
 
-        interfaceFound = False
-
-        # #Folder and file names
-        # with open(os.path.dirname(__file__)+'/count.txt', "r") as counterFile:
-        #     start = int(counterFile.read())-1
-
-        # folderPath = dataPath + str(start)
-        # fileName = folderPath + '/data.csv' #name of the CSV file generated
-        # fileNameRaw = folderPath + '/dataRAW.csv' #name of the CSV file generated
-
-        # df = createDataFrameFromFile(fileName)
-        df = dataLight
-        df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(pd.to_numeric)
-        print(df)
-
-        #Normalize all channels
-        df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(lambda x: x/x.max(), axis=0)
-
-        interfaces = []
-        offset = 2
-        for channel in ["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]:
-            #for channel in ["G","I"]:
-            #Convert channels to numpy arrays
-            channelData = df[channel].to_numpy()
-            #Smooth the curve with a predefined window size
-            smooth = ndimage.uniform_filter1d(channelData, size=smoothWindowSize)
-            #Find first finite difference of smoothed curve
-            gradient = np.gradient(smooth,edge_order=2)
-            #Find second finite difference of smoothed curve
-            gradient2 = np.gradient(gradient,edge_order=2)
-                
-            #Find the max value of the smoothed data to find the peaks
-            maxValue = np.max(smooth)
-            
-            peaks, _ = sig.find_peaks(smooth, prominence = smoothProminence*maxValue)#1/6
-                
-            #Find the inverse peaks to find the valley when the signal drops
-            inversePeaks,_ = sig.find_peaks(-smooth, prominence = maxValue*smoothProminence)
-            
-            
-            #Find the maximum value of the second difference of the smoothed data
-            maxGradient2 = np.max(gradient2)
-            #Find the negative peaks of the first difference of the smoothed data to find the valleys
-            peaksGrad2, _ = sig.find_peaks(gradient2,prominence=gradient2Prominence*maxGradient2)#1/4
-            #print('Peaks Gradient',peaksGrad)
-            
-            #Find all the peaks of the second derivative that are between the first and last most prominent peaks
-            indices = np.where((peaksGrad2 < peaks[-1]))
-            peaksGrad2Cut = peaksGrad2[indices]       
-
-            if len(peaks)>0:
-                if len(peaksGrad2Cut) > 0:
-                    interface = peaksGrad2Cut[-1]
-                else:
-                    interface = inversePeaks[0] 
-
-                interface = peaks[-1]+offset
-                if channel in ["A","B","C","D","E","F"]:
-                        interface -= 10   
-                interfaces.append(interface)
-                interfaceFound = True         
-        
-        if interfaceFound:      
-            print(interfaces)
-
-            #finalInterface = np.mean(interfaces)
-            finalInterface = np.median(interfaces)
-            #finalInterface = stat.mode(interfaces)[0][0]
-            print("Final Interface:", finalInterface)
-
-            interfacePosition = finalInterface
-
+        if liquidType is LiquidType.ethyl:
+            interfaceFound, interfacePosition, error = InterfaceAlg.findInterfaceEthyl(dataLight,smoothProminence,smoothWindowSize)
+        elif liquidType is LiquidType.dichloro:
+            interfaceFound, interfacePosition, error = InterfaceAlg.findInterfaceDichloro(dataLight,smoothProminence,smoothWindowSize)
         else:
-            print("Interface not found")
+            interfaceFound = False
             interfacePosition = 0.0
+            error = "No procedure defined for finding the interface"
 
-        return interfaceFound, interfacePosition, ""
+    return interfaceFound, interfacePosition, error
 
 
 
@@ -294,6 +241,15 @@ async def drain(portLower: int, portUpper: int) -> str:
     await drainUpperPhase(portUpper)
 
     return "All phases drained"
+
+def startPump(speed:int,dir:bool):
+    if pumpDirection != dir:
+        DrainDriver.changePumpDirection()
+        pumpDirection = dir
+
+    DrainDriver.drainSpeed(speed)
+
+    return 1
 
 def stopPump():
     DrainDriver.stopDraining()

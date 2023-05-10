@@ -1,11 +1,12 @@
 import os
 import cv2 as cv
 import logging
+from datetime import datetime
 
 cap = None
 
 if os.name == 'nt':
-    cameraDev = 0
+    cameraDev = 1
 else:
     cameraDev = '/dev/video0'
 
@@ -14,6 +15,9 @@ def captureImage(path,name):
     ret, frame = cap.read()
     if (ret):
         cv.imwrite(path+'/'+name,frame)
+        metaDataFile = open(path+"/metadata.txt", "a")
+        metaDataFile.write(name + ", "+str(datetime.now())+"\n")
+        metaDataFile.close()
         return frame
     else:
         logging.info("Could not capture Image")

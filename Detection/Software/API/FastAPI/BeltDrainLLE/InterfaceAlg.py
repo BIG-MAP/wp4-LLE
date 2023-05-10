@@ -2,10 +2,12 @@ import pandas as pd
 import numpy as np
 from scipy import ndimage
 import scipy.signal as sig
+import logging
 
 
 
 def findInterfaceEthyl(dataLight, smoothWindowSize: int, smoothProminence: float, gradient2Prominence:float):
+    logging.info("Starting find algorithm")
     
     interfaceFound = False  
     error = ""  
@@ -16,7 +18,7 @@ def findInterfaceEthyl(dataLight, smoothWindowSize: int, smoothProminence: float
 
     #Normalize all channels
     df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(lambda x: x/x.max(), axis=0)
-
+    
     interfaces = []
     offset = 2
     for channel in ["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]:
@@ -34,6 +36,7 @@ def findInterfaceEthyl(dataLight, smoothWindowSize: int, smoothProminence: float
         maxValue = np.max(smooth)
             
         peaks, _ = sig.find_peaks(smooth, prominence = smoothProminence*maxValue)#1/6
+        logging.info("Peaks found", peaks)
                 
         #Find the inverse peaks to find the valley when the signal drops
         inversePeaks,_ = sig.find_peaks(-smooth, prominence = maxValue*smoothProminence)

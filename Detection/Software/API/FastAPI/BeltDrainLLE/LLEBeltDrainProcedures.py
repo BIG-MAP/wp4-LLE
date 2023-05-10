@@ -7,6 +7,10 @@ import asyncio
 import scipy.stats as stat
 import math
 
+import numpy as np
+from scipy import ndimage
+import scipy.signal as sig
+
 from enum import Enum
 
 #Import drivers
@@ -15,7 +19,7 @@ from Drivers.DrainingAndRotaryCmd import DrainingAndRotaryCmdDriver as DrainDriv
 from Drivers.CameraDriver import CameraDriver as CamDriver
 
 #Import interface finding algorithms
-import InterfaceAlg
+#from API.FastAPI.BeltDrainLLE.InterfaceAlg import *
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -55,7 +59,7 @@ def getNextBrightness(lastBrightness, lastDelta):
     nextBrightness = lastBrightness + nextDelta(lastDelta)
     return nextBrightness
 
-def calculateVolumeFulstrum(initialVolume,tubingVolume,r,deltaDistance,funnelAngle):
+def calculateVolumeFulstrum(initialVolume:float,tubingVolume:float,r:float,deltaDistance:float,funnelAngle:float)->float:
     """
         Returns the volume in ml given a distance from the reference initial volume point
         and its associated radius in the funnel
@@ -78,7 +82,6 @@ def createDataFrameFromFile(path):
 
 def getVolumeLowerPhase(interfacePosition: float) -> float:
     sensorBorderM = (interfacePosition - 15)*0.001
-
     volumeMl = calculateVolumeFulstrum(300,0,0.0455,sensorBorderM,0.296706)#80-5ml error Original 300 ml initial volume 10 ml tubing volume
 
     return volumeMl
@@ -86,6 +89,104 @@ def getVolumeLowerPhase(interfacePosition: float) -> float:
 def convertMlToSeconds(mlToDrain: float)-> float:
     global conversionFactor
     return mlToDrain*conversionFactor, conversionFactor
+
+
+def hello():
+    logging.info("hello")
+
+
+def findInterfaceEthylAcetate(df,smoothWindowSize,smoothProminence,inverseSmoothProminence,gradientProminence,gradient2Prominence,debug):
+    interfaces = []
+    interfaceFound = False
+    for channel in ["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]:
+    #for channel in ["G","I"]:
+        #Convert channels to numpy arrays
+        channelData = df[channel].to_numpy()
+        #Smooth the curve with a predefined window size
+        smooth = ndimage.uniform_filter1d(channelData, size=smoothWindowSize)
+        #Find first finite difference of smoothed curve
+        gradient = np.gradient(smooth,edge_order=2)
+        #Find second finite difference of smoothed curve
+        gradient2 = np.gradient(gradient,edge_order=2)
+        
+        if debug:
+            #Create plot figure and axes
+            f, ax = plt.subplots(figsize=(15, 7))
+            #Plot smoothed curve and first derivative
+            sns.lineplot(data=smooth,palette='bright',label='smooth '+channel)
+            sns.lineplot(data=gradient,palette='bright',label='gradient')
+            sns.lineplot(data=gradient2,palette='bright',label='gradient2')
+            #Plot a vertical line for the interface manually
+            #plt.axvline(x=15,linestyle='--')
+            plt.legend()
+            
+        #Find the max value of the smoothed data to find the peaks
+        maxValue = np.max(smooth)
+        
+        peaks, _ = sig.find_peaks(smooth, prominence = smoothProminence*maxValue)#1/6
+            
+        #Find the inverse peaks to find the valley when the signal drops
+        inversePeaks,_ = sig.find_peaks(-smooth, prominence = maxValue*inverseSmoothProminence)
+        
+        #Find the maximum value of the first difference of the smoothed data
+        maxGradient = np.max(gradient)
+        #Find the peaks of the first difference of the smoothed data
+        peaksGrad, properties = sig.find_peaks(gradient,prominence=gradientProminence*maxGradient,height =maxGradient*1/2)#1/4
+        
+        #Find all the peaks of the first derivative that are before the most prominent peak
+        indices = np.where((peaksGrad < peaks[-1]))
+        peaksGradCut = peaksGrad[indices]
+        
+        
+        #Find the maximum value of the second difference of the smoothed data
+        maxGradient2 = np.max(gradient2)
+        #Find the peaks of the second difference of the smoothed data
+        peaksGrad2, _ = sig.find_peaks(gradient2,prominence=gradient2Prominence*maxGradient2)#1/4
+        #print('Peaks Gradient',peaksGrad)
+        
+        #Find all the peaks of the second derivative before the most prominent peak and the last gradient peak
+        if len(peaksGradCut)>0:
+            indices = np.where((peaksGrad2 < peaksGradCut[-1]))
+            peaksGrad2Cut = peaksGrad2[indices]
+        else:
+            indices = np.where((peaksGrad2 < peaks[-1]))
+            peaksGrad2Cut = peaksGrad2[indices]
+        
+        if len(peaksGrad2Cut) > 0:
+            interface = peaksGrad2Cut[-1]
+            
+        else:
+            interface = inversePeaks[0]
+
+        
+        if channel in ["A","B","C","D","E","F"]:
+                interface -= 10
+        interfaces.append(interface)
+        
+        if debug:
+            #plt.plot(peaks, smooth[peaks], "x")
+            plt.axvline(x=inversePeaks[0],linestyle='--')
+            if len(peaksGrad2Cut)>0:
+                plt.axvline(x=peaksGrad2Cut[-1],linestyle=':')
+            plt.axvline(x=peaks[-1],linestyle='-.')
+            print('Channel',channel)
+            print('Peaks',peaks)
+            print('Peaks gradient cut', peaksGrad)
+            #print('Peaks gradient cut properties', properties)
+            print('Peaks gradient 2 cut',peaksGrad2Cut)
+            #print('Peaks properties',properties)
+            print('InversePeaks',inversePeaks)
+            
+        
+        
+    finalInterface = np.median(interfaces)
+    #finalInterface = stat.mode(interfaces)[0][0]
+    if debug:
+        print('InterfacesList', interfaces)
+        print("Final Interface:", finalInterface)
+    
+    return interfaceFound, finalInterface
+
 
 #Main functions
 
@@ -218,18 +319,179 @@ def scanFunnel(initialLEDs: int,delta: int,travelDistance: int, stopEvent: async
 
 #Find interface
 def findInterface(dataLight, smoothWindowSize: int, smoothProminence: float, gradient2Prominence:float):
+    global funnelScanned, interfacePosition,liquidType
+    logging.info("Finding the interface")
 
-    global funnelScanned, interfacePosition
+    interfaceFound = False
+    error = ""
+
     if(funnelScanned):
-
+        #logging.info("Funnel is scanned")
+        #logging.info(liquidType)
         if liquidType is LiquidType.ethyl:
-            interfaceFound, interfacePosition, error = InterfaceAlg.findInterfaceEthyl(dataLight,smoothProminence,smoothWindowSize)
-        elif liquidType is LiquidType.dichloro:
-            interfaceFound, interfacePosition, error = InterfaceAlg.findInterfaceDichloro(dataLight,smoothProminence,smoothWindowSize)
-        else:
+            logging.info("Finding ethyl acetate interface")
+    
             interfaceFound = False
-            interfacePosition = 0.0
-            error = "No procedure defined for finding the interface"
+            error = ""  
+            
+            df = dataLight
+            df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(pd.to_numeric)
+            print(df)
+
+            #Normalize all channels
+            df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(lambda x: x/x.max(), axis=0)
+            
+            smoothWindowSize= 5
+            smoothProminence = 1/15
+            inverseSmoothProminence =1/15
+            gradientProminence = 1
+            gradient2Prominence=1/3
+
+            interfaces = []
+            interfaceFound = False
+            for channel in ["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]:
+                #for channel in ["G","I"]:
+                #Convert channels to numpy arrays
+                channelData = df[channel].to_numpy()
+                #Smooth the curve with a predefined window size
+                smooth = ndimage.uniform_filter1d(channelData, size=smoothWindowSize)
+                #Find first finite difference of smoothed curve
+                gradient = np.gradient(smooth,edge_order=2)
+                #Find second finite difference of smoothed curve
+                gradient2 = np.gradient(gradient,edge_order=2)
+            
+                #Find the max value of the smoothed data to find the peaks
+                maxValue = np.max(smooth)
+                
+                peaks, _ = sig.find_peaks(smooth, prominence = smoothProminence*maxValue)#1/6
+                    
+                #Find the inverse peaks to find the valley when the signal drops
+                inversePeaks,_ = sig.find_peaks(-smooth, prominence = maxValue*inverseSmoothProminence)
+                
+                #Find the maximum value of the first difference of the smoothed data
+                maxGradient = np.max(gradient)
+                #Find the peaks of the first difference of the smoothed data
+                peaksGrad, _ = sig.find_peaks(gradient,prominence=gradientProminence*maxGradient,height =maxGradient*1/2)#1/4
+
+                #Find the maximum value of the second difference of the smoothed data
+                maxGradient2 = np.max(gradient2)
+
+                #Find the peaks of the second difference of the smoothed data
+                peaksGrad2, _ = sig.find_peaks(gradient2,prominence=gradient2Prominence*maxGradient2)#1/4
+                #print('Peaks Gradient',peaksGrad)
+                
+                if len(peaks)>0:
+                    #Find all the peaks of the first derivative that are before the most prominent peak
+                    indices = np.where((peaksGrad < peaks[-1]))
+                    peaksGradCut = peaksGrad[indices]
+                
+                    #Find all the peaks of the second derivative before the most prominent peak and the last gradient peak
+                    if len(peaksGradCut)>0:
+                        indices = np.where((peaksGrad2 < peaksGradCut[-1]))
+                        peaksGrad2Cut = peaksGrad2[indices]
+                    else:
+                        indices = np.where((peaksGrad2 < peaks[-1]))
+                        peaksGrad2Cut = peaksGrad2[indices]
+                
+                    if len(peaksGrad2Cut) > 0:
+                        interface = peaksGrad2Cut[-1]
+                        if channel in ["A","B","C","D","E","F"]:
+                            interface -= 10
+                        interfaces.append(interface) 
+                        interfaceFound = True     
+                    elif len(inversePeaks)> 0:
+                        interface = inversePeaks[0]
+                        if channel in ["A","B","C","D","E","F"]:
+                            interface -= 10
+                        interfaces.append(interface)
+                        interfaceFound = True
+                else:
+                    #error += ", No peaks found in channel " + channel
+                    #print(error)
+                    print( "No peaks found in channel " + channel)
+
+                    # print('Channel',channel)
+                    # print('Peaks',peaks)
+                    # print('Peaks gradient cut', peaksGrad)
+                    # #print('Peaks gradient cut properties', properties)
+                    # print('Peaks gradient 2 cut',peaksGrad2Cut)
+                    # #print('Peaks properties',properties)
+                    # print('InversePeaks',inversePeaks)
+
+            if interfaceFound:      
+                print(interfaces)             
+                finalInterface = np.median(interfaces)
+                #finalInterface = stat.mode(interfaces)[0][0]
+                print('InterfacesList', interfaces)
+                print("Final Interface:", finalInterface)
+                interfacePosition = finalInterface
+
+            else:
+                error += ", Interface not found, no peaks found"
+                interfacePosition = 0.0
+
+
+        if liquidType is LiquidType.dichloro:
+            logging.info("Finding ethyl acetate interface")
+    
+            interfaceFound = False
+            error = ""  
+            
+            df = dataLight
+            df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(pd.to_numeric)
+            print(df)
+
+            #Normalize all channels
+            df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(lambda x: x/x.max(), axis=0)
+            
+            smoothWindowSize= 3
+            smoothProminence = 1/7
+            #inverseSmoothProminence =1/15
+            #gradient2Prominence=1/3
+            offset= 2
+    
+
+            interfaces = []
+            interfaceFound = False
+            for channel in ["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]:
+                #for channel in ["G","I"]:
+                #Convert channels to numpy arrays
+                channelData = df[channel].to_numpy()
+                #Smooth the curve with a predefined window size
+                smooth = ndimage.uniform_filter1d(channelData, size=smoothWindowSize)
+                #Find first finite difference of smoothed curve
+                gradient = np.gradient(smooth,edge_order=2)
+                #Find second finite difference of smoothed curve
+                gradient2 = np.gradient(gradient,edge_order=2)
+        
+            
+                #Find the max value of the smoothed data to find the peaks
+                maxValue = np.max(smooth)
+        
+                peaks, _ = sig.find_peaks(smooth, prominence = smoothProminence*maxValue)#1/6
+        
+                if len(peaks)>0:
+                    interface = peaks[-1]+offset    
+                    if channel in ["A","B","C","D","E","F"]:
+                        interface -= 10
+                    interfaces.append(interface)
+                    interfaceFound = True 
+                else:
+                    #error += ", No peaks found in channel " + channel
+                    #print(error)
+                    print("No peaks found in channel " + channel)
+
+            if interfaceFound: 
+                finalInterface = np.median(interfaces)
+                #finalInterface = stat.mode(interfaces)[0][0]
+                print('InterfacesList', interfaces)
+                print("Final Interface:", finalInterface)
+                interfacePosition = finalInterface
+            else:
+                error += ",No interfaces found"
+                print(error)
+                interfacePosition = 0.0
+
 
     return interfaceFound, interfacePosition, error
 
@@ -243,12 +505,13 @@ async def drain(portLower: int, portUpper: int) -> str:
     return "All phases drained"
 
 def startPump(speed:int,dir:bool):
+    global pumpDirection
     if pumpDirection != dir:
         DrainDriver.changePumpDirection()
         pumpDirection = dir
-
+    print("Direction checked")
     DrainDriver.drainSpeed(speed)
-
+    print("Pump started")
     return 1
 
 def stopPump():
@@ -292,35 +555,36 @@ async def drainLowerPhase(port: int,interfacePosition:float) -> str:
     # drainSpeeds[2] = 102 #0.4
     # drainSpeeds[3] = 51 #0.2
 
-    try:
-        moveValveToPort(port)
-        if not pumpDirection:
-            DrainDriver.changePumpDirection()
-            pumpDirection = not pumpDirection
+    #try:
+    moveValveToPort(port)
+    if not pumpDirection:
+        DrainDriver.changePumpDirection()
+        pumpDirection = not pumpDirection
         
-        for i in range(len(drainStages)):
+    for i in range(len(drainStages)):
             
-            secondsToDrain, conversionFactor = convertMlToSeconds(drainStages[i])
+        secondsToDrain, conversionFactor = convertMlToSeconds(drainStages[i])
 
-            secondsToDrain = secondsToDrain*(255/stageSpeed[i])
+        secondsToDrain = secondsToDrain*(255/stageSpeed[i])
      
-            logging.info("interfacePosition = " + str(interfacePosition))
-            logging.info("mlToDrain = " + str(drainStages[i]))
-            logging.info("secondsToDrain = " + str(secondsToDrain))
+        logging.info("interfacePosition = " + str(interfacePosition))
+        logging.info("mlToDrain = " + str(drainStages[i]))
+        logging.info("secondsToDrain = " + str(secondsToDrain))
+        logging.info("pumpSpeed = " + str(stageSpeed[i]))
 
-            DrainDriver.drainSpeed(stageSpeed[i])
-            await asyncio.sleep(secondsToDrain)#66 around 100ml
-            DrainDriver.stopDraining()
+        DrainDriver.drainSpeed(stageSpeed[i])
+        await asyncio.sleep(secondsToDrain)#66 around 100ml
+        DrainDriver.stopDraining()
             #DrainDriver.setMlPerDrainStep(mlToDrain)
             #DrainDriver.drainStep()
 
-        lowerPhaseDrained = True
-    except serial.SerialException as e:
+    lowerPhaseDrained = True
+    #except serial.SerialException as e:
         #There is no new data from serial port readings
-        return port, mlToDrain, conversionFactor, secondsToDrain, "drainLowerPhase: No data read from serial port"
-    except TypeError as e:
+    #    return port, mlToDrain, conversionFactor, secondsToDrain, "drainLowerPhase: No data read from serial port"
+    #except TypeError as e:
         #Disconnect of USB->UART occured
-        return port, mlToDrain, conversionFactor, secondsToDrain, "drainLowerPhase: Serial port disconnected"
+    #    return port, mlToDrain, conversionFactor, secondsToDrain, "drainLowerPhase: Serial port disconnected"
 
     return port, mlToDrain, conversionFactor, secondsToDrain, "" 
 
@@ -366,6 +630,7 @@ def setInterfacePosition(position: float) -> str:
     global interfacePosition
     interfacePosition = position
     return "Interface position set from outside"
+
 
 def getSensorData(idN: int):
     with open(os.path.dirname(__file__)+'/count.txt', "r") as counterFile:
@@ -451,6 +716,38 @@ def getImageDataFolderPath(idN: int)-> str:
         return imageFolderPath
     else:
         return "Data id does not exist"
+    
+def getLastImageDataFolderPath()-> str:
+
+    with open(os.path.dirname(__file__)+'/count.txt', "r") as counterFile:
+        start = int(counterFile.read())-1
+
+    folderPath = dataPath + str(start)
+    imageFolderPath = folderPath + '/'+ imageFolderName
+    return imageFolderPath
+
+def drainMlToPortSpeed(ml: float,port: int, speed:int):
+    global pumpDirection
+
+    secondsToDrain, conversionFactor = convertMlToSeconds(ml)
+    logging.info("mlToDrain = " + str(ml))
+    logging.info("secondsToDrain = " + str(secondsToDrain))
+
+    if speed != 255:
+        secondsToDrain = secondsToDrain*(255/speed)
+
+    moveValveToPort(port)
+    if not pumpDirection:
+        DrainDriver.changePumpDirection()
+        pumpDirection = not pumpDirection
+
+    DrainDriver.drainSpeed(speed)
+    time.sleep(secondsToDrain)#66 around 100ml
+    DrainDriver.stopDraining()
+    #DrainDriver.setMlPerDrainStep(mlToDrain)
+    #DrainDriver.drainStep()
+
+    return port, ml, conversionFactor, secondsToDrain, ""
 
 
 

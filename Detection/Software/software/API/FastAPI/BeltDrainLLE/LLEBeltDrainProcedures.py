@@ -14,9 +14,9 @@ import scipy.signal as sig
 from enum import Enum
 
 #Import drivers
-from Drivers.BeltSensorCmd import BeltSensorDriverCmd as BeltDriver
-from Drivers.DrainingAndRotaryCmd import DrainingAndRotaryCmdDriver as DrainDriver
-from Drivers.CameraDriver import CameraDriver as CamDriver
+from software.Drivers.BeltSensorCmd import BeltSensorDriverCmd as BeltDriver
+from software.Drivers.DrainingAndRotaryCmd import DrainingAndRotaryCmdDriver as DrainDriver
+from software.Drivers.CameraDriver import CameraDriver as CamDriver
 
 #Import interface finding algorithms
 #from API.FastAPI.BeltDrainLLE.InterfaceAlg import *

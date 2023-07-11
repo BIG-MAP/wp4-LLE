@@ -17,7 +17,7 @@ from datetime import datetime
 
 
 #Import drivers
-from API.FastAPI.BeltDrainLLE import LLEBeltDrainProcedures as LLEProc #In charge of initializing pumps and valves
+from software.API.FastAPI.BeltDrainLLE import LLEBeltDrainProcedures as LLEProc #In charge of initializing pumps and valves
 
 
 class Status(Enum):

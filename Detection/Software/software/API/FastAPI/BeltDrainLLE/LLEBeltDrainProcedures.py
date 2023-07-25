@@ -39,6 +39,7 @@ lowerPhaseDrained = False
 pumpDirection = False
 conversionFactor = 1/1.60425 #1/1.5 #66/100
 liquidType = LiquidType.ethyl
+lowestDetectionPoint = 300
 
 
 #Driver Initialization
@@ -500,6 +501,37 @@ def findInterfaceTubing(df, detected, threshold, normalizingBounds):
                 interfaceIndex = len(readingGr) - index
 
     return detected, interfaceIndex
+
+async def drainToLowestDetectionPoint(port: int, interfacePosition: float)->(int,float,float,float,str):
+    global pumpDirection,lowestDetectionPoint
+
+    mlToDrain = getVolumeLowerPhase(interfacePosition)
+
+    moveValveToPort(port)
+    if not pumpDirection:
+        DrainDriver.changePumpDirection()
+        pumpDirection = not pumpDirection
+
+    mlToDrain = mlToDrain - lowestDetectionPoint
+
+    if mlToDrain <= 0:
+        logging.info("Already at or beyond lowest detection point")
+        return port, mlToDrain, 0, 0, False, "Already at or beyond lowest detection point"
+
+    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain)
+
+    logging.info("interfacePosition = " + str(interfacePosition))
+    logging.info("mlToDrain = " + str(mlToDrain))
+    logging.info("secondsToDrain = " + str(secondsToDrain))
+    logging.info("pumpSpeed = " + str(50))
+
+    DrainDriver.drainSpeed(50)
+    await asyncio.sleep(secondsToDrain)  # 66 around 100ml
+    DrainDriver.stopDraining()
+
+    return port, mlToDrain, conversionFactor, secondsToDrain, True, ""
+
+
 
 
 async def drainLowerPhase(port : int, interfacePosition : float, tubingSensor : bool = False, bottomSensor : bool = False) -> str:

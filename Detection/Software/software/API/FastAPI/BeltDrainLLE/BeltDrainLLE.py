@@ -361,6 +361,43 @@ class LiquidExtractor:
         print(success)
         self.status = Status.finished
 
+    def startDrainToLowestDetectionPoint(self, port, interfacePosition):
+        print("Starting drain lower layer to lowest detection point")
+        self.stopEvent.clear()
+        self.status = Status.running
+        self.runningTask = asyncio.run_coroutine_threadsafe(
+            self.runDrainToLowestDetectionPoint(port, interfacePosition), backLoop)
+        self.runningTask.exception
+
+    async def runDrainToLowestDetectionPoint(self, port, interfacePosition):
+        print("Running drain lower layer to lowest detection point")
+
+        mlToDrainLower = 0.0
+        conversionFactorLower = 0.0
+        secondsToDrainLower = 0.0
+        print(interfacePosition)
+
+        if interfacePosition != None:
+            # print(interfacePosition)
+            _, mlToDrainLower, conversionFactorLower, secondsToDrainLower, success, error = await LLEProc.drainToLowestDetectionPoint(port,
+                                                                                                                 interfacePosition)
+        elif self.results.interfaceResult != None:
+            _, mlToDrainLower, conversionFactorLower, secondsToDrainLower, success, error = await LLEProc.drainToLowestDetectionPoint(port,
+                                                                                                       self.results.interfaceResult.interfacePosition)
+        else:
+            error = "No interface position set to drain the lower layer"
+            print(error)
+
+        if error != "":
+            self.error = self.error + ", " + error
+
+        if success:
+            print("Drained to lowest detection point")
+        else:
+            print("Already at or beyond lowest detection point")
+
+        self.status = Status.finished
+
 
 #Create app
 app = FastAPI()
@@ -454,6 +491,11 @@ async def do_MoveValveToPort(port: int, background_tasks: BackgroundTasks):
 @app.get("/movePump/{speed}/{dir}",response_model=StatusResponse)
 async def do_MovePump(speed: int, dir: bool, background_tasks: BackgroundTasks):
     background_tasks.add_task(extractor.startMovePump,speed,dir)
+    return StatusResponse(status=Status.running)
+
+@app.get("/DrainLowerToLowestDetectionPoint/{port}",response_model=StatusResponse) #/DrainLowerLayer/{port}?50.3
+async def do_DrainLowerToLowestDetectionPoint(port: int, intPos: float = None, background_tasks: BackgroundTasks = None):
+    background_tasks.add_task(extractor.startDrainToLowestDetectionPoint,port, intPos)
     return StatusResponse(status=Status.running)
 
 

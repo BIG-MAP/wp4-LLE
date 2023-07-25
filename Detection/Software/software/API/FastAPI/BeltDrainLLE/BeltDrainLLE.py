@@ -61,6 +61,8 @@ class DrainSettings(BaseModel):
     portLower: int = Field(1, title = "A port number", description = "The port number to drain the lower phase to", gt = 0, le=4, example = 1)
     portUpper: int = Field(2, title = "A port number", description = "The port number to drain the upper phase to", gt = 0, le=4, example = 1)
     mlToDrainUpper: Union[float,None] = Field(default = 500, title = "A number of ml", description = "The number of ml to drain", gt = 0, example = 100.0)
+    useTubingSensor: bool = Field(default = True, title = "Enable the tubing sensor at the output", description = "Enable the use of the tubing sensor at the output of the funnel as a"
+                                                                                                                  "redundant sensor to stop draining of the lower phase" )
 
 class Settings(BaseModel):
     settlingSettings: SettlingSettings = SettlingSettings()
@@ -196,7 +198,7 @@ class LiquidExtractor:
             self.error = self.error + ", " + error
         if(interfaceFound):
             print("Interface Found")
-            portLower, mlToDrainLower, conversionFactorLower, secondsToDrainLower, error = await LLEProc.drainLowerPhase(self.settings.drainSettings.portLower,interfacePosition)
+            portLower, mlToDrainLower, conversionFactorLower, secondsToDrainLower, error = await LLEProc.drainLowerPhase(self.settings.drainSettings.portLower,interfacePosition,self.settings.drainSettings.useTubingSensor)
             if error != "":
                 self.error = self.error + ", " + error
             portUpper, mlToDrainUpper, conversionFactorUpper, secondsToDrainUpper, error = await LLEProc.drainUpperPhase(self.settings.drainSettings.portUpper)
@@ -294,13 +296,13 @@ class LiquidExtractor:
         self.results.drainResult = DataDrain(mlToDrainUpper=mlToDrainUpper,conversionFactorUpper=conversionFactorUpper,secondsUpper=secondsToDrainUpper)
         self.status = Status.finished
 
-    def startDrainLowerToPort(self,port,interfacePosition):
+    def startDrainLowerToPort(self,port,interfacePosition,tubingSensor=True):
         print("Starting drain lower layer to port")
         self.stopEvent.clear()
         self.status = Status.running
-        self.runningTask = asyncio.run_coroutine_threadsafe(self.runDrainLowerToPort(port,interfacePosition), backLoop)
+        self.runningTask = asyncio.run_coroutine_threadsafe(self.runDrainLowerToPort(port,interfacePosition,tubingSensor), backLoop)
         self.runningTask.exception
-    async def runDrainLowerToPort(self,port,interfacePosition):
+    async def runDrainLowerToPort(self,port,interfacePosition,tubingSensor = True):
         print("Running drain lower layer to port")
 
         mlToDrainLower = 0.0
@@ -310,9 +312,9 @@ class LiquidExtractor:
 
         if interfacePosition != None:
         #print(interfacePosition)
-            _, mlToDrainLower, conversionFactorLower, secondsToDrainLower, error = await LLEProc.drainLowerPhase(port,interfacePosition)
+            _, mlToDrainLower, conversionFactorLower, secondsToDrainLower, error = await LLEProc.drainLowerPhase(port,interfacePosition,tubingSensor)
         elif self.results.interfaceResult != None:
-            _, mlToDrainLower, conversionFactorLower, secondsToDrainLower, error = await LLEProc.drainLowerPhase(port,self.results.interfaceResult.interfacePosition)
+            _, mlToDrainLower, conversionFactorLower, secondsToDrainLower, error = await LLEProc.drainLowerPhase(port,self.results.interfaceResult.interfacePosition,tubingSensor)
         else:
             error = "No interface position set to drain the lower layer"
             print(error)
@@ -435,8 +437,8 @@ def get_pumpFromPort(port: int, ml: float,background_tasks: BackgroundTasks):
     return StatusResponse(status=Status.running)
 
 @app.get("/DrainLowerLayer/{port}",response_model=StatusResponse) #/DrainLowerLayer/{port}?50.3
-async def do_DrainLowerToPort(port: int, intPos: float = None, background_tasks: BackgroundTasks = None):
-    background_tasks.add_task(extractor.startDrainLowerToPort,port, intPos)
+async def do_DrainLowerToPort(port: int, intPos: float = None, tubingSensor:bool = True, background_tasks: BackgroundTasks = None):
+    background_tasks.add_task(extractor.startDrainLowerToPort,port, intPos, tubingSensor)
     return StatusResponse(status=Status.running)
 
 @app.get("/DrainUpperLayer/{port}",response_model=StatusResponse)
@@ -546,8 +548,12 @@ def getImageData(id: int = None):
 #Get the last image data obtained when scanning the interface
 
 
-#if __name__ == "__main__":
-    #uvicorn.run("BeltDrainLLE:app", host='0.0.0.0', port=8000, reload=True)
+def main():
+    uvicorn.run("software.API.FastAPI.BeltDrainLLE.BeltDrainLLE:app", host='0.0.0.0', port=8000)
+
+if __name__ == "__main__":
+    main()
+
     
 
 

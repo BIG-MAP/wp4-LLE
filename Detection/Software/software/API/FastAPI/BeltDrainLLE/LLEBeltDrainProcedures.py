@@ -17,6 +17,7 @@ from enum import Enum
 from software.Drivers.BeltSensorCmd import BeltSensorDriverCmd as BeltDriver
 from software.Drivers.DrainingAndRotaryCmd import DrainingAndRotaryCmdDriver as DrainDriver
 from software.Drivers.CameraDriver import CameraDriver as CamDriver
+from software.Drivers.TubingSensor import TubingSensorDriverCmd as TubingSensorDriver
 
 #Import interface finding algorithms
 #from API.FastAPI.BeltDrainLLE.InterfaceAlg import *
@@ -452,7 +453,161 @@ def calculateDrainStages(drainLimits: list, mlToDrain: float)-> list:
 
 
 #Drain lower phase
-async def drainLowerPhase(port: int,interfacePosition:float) -> str:
+def detectInterfaceTubingWindow(window, threshold):
+    detected = False
+    index = 0
+
+    for i in range(window.shape[1]):
+        PeaksChannel, _ = sig.find_peaks(window[:, i], height=threshold)
+        # display(window[:,i])
+        negPeaksChannel, _ = sig.find_peaks(-window[:, i], height=threshold)
+        if negPeaksChannel.size > 0:
+            print("Neg Peaks", negPeaksChannel)
+            index = 8 - negPeaksChannel[-1] + 2
+            # index = negPeaksChannel[-1]
+            print(index, i)
+            detected = True
+            break
+
+        if PeaksChannel.size > 0:
+            print("Pos Peaks", PeaksChannel)
+            index = 8 - PeaksChannel[-1] + 2
+            # index = PeaksChannel[-1]
+            print(index, i)
+            detected = True
+            break
+
+    return detected, index
+
+
+def findInterfaceTubing(df, detected, threshold, normalizingBounds):
+    channels = ["R", "S", "T", "U", "V", "W"]
+    for i in range(6):
+        df[channels[i]] = df[channels[i]] / normalizingBounds[i]
+    readingCurrent = df.to_numpy()
+
+    interfaceIndex = -1
+
+    if (len(readingCurrent) > 10):
+        # readingArray = ndimage.uniform_filter1d(readingCurrent, size=3)
+        readingArray = readingCurrent
+        readingGr = np.gradient(readingArray, edge_order=1, axis=0)
+        if (not detected):
+            window = readingGr[-10:-1, :]
+            detected, index = detectInterfaceTubingWindow(window, threshold)
+            # print(detected,index)
+            if detected:
+                interfaceIndex = len(readingGr) - index
+
+    return detected, interfaceIndex
+
+
+async def drainLowerPhase(port : int, interfacePosition : float, tubingSensor : bool = False, bottomSensor : bool = False) -> str:
+    global lowerPhaseDrained,pumpDirection
+
+    mlToDrain = getVolumeLowerPhase(interfacePosition)
+
+    moveValveToPort(port)
+    if not pumpDirection:
+        DrainDriver.changePumpDirection()
+        pumpDirection = not pumpDirection
+
+    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain)
+
+    logging.info("interfacePosition = " + str(interfacePosition))
+    logging.info("mlToDrain = " + str(mlToDrain))
+    logging.info("secondsToDrain = " + str(secondsToDrain))
+    logging.info("pumpSpeed = " + str(50))
+
+    start = 0
+    folderPath = None
+    fileName = None
+    fileNameRaw = None
+
+    readings = None
+    readingsRaw = None
+    detected = False
+
+    normalizingBounds = [3562.50048828125, 1112.6715087890625, 354.029541015625, 194.21142578125,
+                         208.8236389160156, 97.33015441894533]
+    threshold = 0.025
+
+
+    if tubingSensor:
+        print("Using tubing sensor")
+        # Folder and file names
+        with open(os.path.dirname(__file__) + '/countTubing.txt', "r") as counterFile:
+            start = int(counterFile.read())
+
+        with open(os.path.dirname(__file__) + '/countTubing.txt', "w") as counterFile:
+            counterFile.write(str(start + 1))
+
+        folderPath = dataPath + 'Tubing' + str(start)
+        os.mkdir(folderPath)
+
+        fileName = folderPath + '/data.csv'  # name of the CSV file generated
+        fileNameRaw = folderPath + '/dataRAW.csv'  # name of the CSV file generated
+
+        readings = None
+        readingsRaw = None
+        detected = False
+
+        print("Creating tubing files")
+
+    loop = asyncio.get_running_loop()
+    startTime = loop.time()
+    print("Start time " + str(startTime))
+    currentTime = loop.time()
+
+    #Start pump at the slowest speed and wait for secondsToDrain
+    DrainDriver.drainSpeed(50)
+    while((currentTime - startTime ) <= secondsToDrain):
+
+        if bottomSensor and ((currentTime - startTime) >= secondsToDrain*0.75):
+            pass
+
+        if tubingSensor and ((currentTime - startTime) >= secondsToDrain*0.75):
+
+            result = TubingSensorDriver.takeMeasurement()
+
+            if readings is None:
+                readings = [[]]
+                readings[0] = result[0]
+                readingsRaw = [[]]
+                readingsRaw[0] = result[1]
+            else:
+                readings.append(result[0])
+                readingsRaw.append(result[1])
+
+            print("Taking tubing measurement")
+
+            column_names = ["R", "S", "T", "U", "V", "W"]
+            df = pd.DataFrame(readings, columns=column_names)
+            dfRaw = pd.DataFrame(readingsRaw, columns=column_names)
+
+            df.to_csv(fileName, index=False)
+            dfRaw.to_csv(fileNameRaw, index=False)
+
+            if not detected:
+                detected, interface = findInterfaceTubing(df, detected, threshold, normalizingBounds)
+            print("Interface detected ", detected)
+            print("Interface ", interface)
+
+            if detected:
+                break
+
+        currentTime = loop.time()
+        await asyncio.sleep(0.1)  # 66 around 100ml
+    DrainDriver.stopDraining()
+    # DrainDriver.setMlPerDrainStep(mlToDrain)
+    # DrainDriver.drainStep()
+
+    lowerPhaseDrained = True
+
+    return port, mlToDrain, conversionFactor, secondsToDrain, ""
+
+
+async def drainLowerPhaseLimits(port: int,interfacePosition:float) -> str:
     global lowerPhaseDrained, pumpDirection
 
 

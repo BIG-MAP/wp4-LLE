@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "software"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["Rodrigo <rodr@itu.dk>"]
 readme = "README.md"
@@ -17,6 +17,8 @@ pycmdmessenger = "^0.2.4"
 pyserial = "^3.5"
 opencv-python = "^4.7.0.72"
 
+[tool.poetry.scripts]
+lle-fastapi = "software.API.FastAPI.BeltDrainLLE.BeltDrainLLE:main"
 
 [build-system]
 requires = ["poetry-core"]

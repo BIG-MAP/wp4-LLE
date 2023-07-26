@@ -16,9 +16,11 @@ scipy = "^1.10.1"
 pycmdmessenger = "^0.2.4"
 pyserial = "^3.5"
 opencv-python = "^4.7.0.72"
+requests = "^2.31.0"
 
 [tool.poetry.scripts]
 lle-fastapi = "software.API.FastAPI.BeltDrainLLE.BeltDrainLLE:main"
+pump-calibration = "software.Calibration.PumpCalibration:main"
 
 [build-system]
 requires = ["poetry-core"]

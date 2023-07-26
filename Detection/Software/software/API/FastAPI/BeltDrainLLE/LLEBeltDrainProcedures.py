@@ -809,6 +809,26 @@ async def drainMlToPort(ml: float,port: int):
 
     return port, ml, conversionFactor, secondsToDrain, ""
 
+#Helper function for calibration
+async def drainTimeToPort(t: float,port: int,speed: int):
+    global pumpDirection
+
+    secondsToDrain = t
+    logging.info("secondsToDrain = " + str(secondsToDrain))
+
+    moveValveToPort(port)
+    if not pumpDirection:
+        DrainDriver.changePumpDirection()
+        pumpDirection = not pumpDirection
+
+    DrainDriver.drainSpeed(speed)
+    await asyncio.sleep(secondsToDrain)#66 around 100ml
+    DrainDriver.stopDraining()
+    #DrainDriver.setMlPerDrainStep(mlToDrain)
+    #DrainDriver.drainStep()
+
+    return port, secondsToDrain, ""
+
 
 def getImageDataFolderPath(idN: int)-> str:
 

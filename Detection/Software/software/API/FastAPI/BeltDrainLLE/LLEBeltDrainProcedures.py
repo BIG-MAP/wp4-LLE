@@ -98,8 +98,18 @@ def getVolumeLowerPhase(interfacePosition: float) -> float:
 
     return volumeMl
 
-def convertMlToSeconds(mlToDrain: float)-> float:
+def convertMlToSeconds(mlToDrain: float,speed: int)-> float:
     global conversionFactor
+    if speed == 255:
+        with open('./conversion255.txt', "r") as conversionFile:
+            conversion = float(conversionFile.read())
+            return mlToDrain*conversion, conversion
+    elif speed == 50:
+        with open('./conversion50.txt', "r") as conversionFile:
+            conversion = float(conversionFile.read())
+            return mlToDrain*conversion, conversion
+
+
     return mlToDrain*conversionFactor, conversionFactor
 
 
@@ -352,7 +362,7 @@ def findInterface(dataLight, smoothWindowSize: int, smoothProminence: float, gra
 
 
         if liquidType is LiquidType.dichloro:
-            logging.info("Finding ethyl acetate interface")
+            logging.info("Finding dicholoromethane interface")
     
             interfaceFound = False
             error = ""  
@@ -518,7 +528,7 @@ async def drainToLowestDetectionPoint(port: int, interfacePosition: float)->(int
         logging.info("Already at or beyond lowest detection point")
         return port, mlToDrain, 0, 0, False, "Already at or beyond lowest detection point"
 
-    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain)
+    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain,50)
 
     logging.info("interfacePosition = " + str(interfacePosition))
     logging.info("mlToDrain = " + str(mlToDrain))
@@ -544,7 +554,7 @@ async def drainLowerPhase(port : int, interfacePosition : float, tubingSensor : 
         DrainDriver.changePumpDirection()
         pumpDirection = not pumpDirection
 
-    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain)
+    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain,50)
 
     logging.info("interfacePosition = " + str(interfacePosition))
     logging.info("mlToDrain = " + str(mlToDrain))
@@ -668,7 +678,7 @@ async def drainLowerPhaseLimits(port: int,interfacePosition:float) -> str:
         
     for i in range(len(drainStages)):
             
-        secondsToDrain, conversionFactor = convertMlToSeconds(drainStages[i])
+        secondsToDrain, conversionFactor = convertMlToSeconds(drainStages[i],stageSpeed[i])
 
         secondsToDrain = secondsToDrain*(255/stageSpeed[i])
      
@@ -699,7 +709,7 @@ async def drainUpperPhase(port: int) -> str:
     global lowerPhaseDrained, pumpDirection
     
     mlToDrain = 1000
-    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain)
+    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain,255)
     
     if(lowerPhaseDrained):
      
@@ -772,7 +782,7 @@ def getSensorDataRaw(idN: int):
 async def pumpMlFromPort(ml: float, port :int , tubingVolume:float):
     global pumpDirection
 
-    secondsToPump, conversionFactor = convertMlToSeconds(ml+tubingVolume)
+    secondsToPump, conversionFactor = convertMlToSeconds(ml+tubingVolume,255)
     logging.info("mlToPump = " + str(ml))
     logging.info("secondsToPump = " + str(secondsToPump))
 
@@ -792,7 +802,7 @@ async def pumpMlFromPort(ml: float, port :int , tubingVolume:float):
 async def drainMlToPort(ml: float,port: int):
     global pumpDirection
 
-    secondsToDrain, conversionFactor = convertMlToSeconds(ml)
+    secondsToDrain, conversionFactor = convertMlToSeconds(ml,255)
     logging.info("mlToDrain = " + str(ml))
     logging.info("secondsToDrain = " + str(secondsToDrain))
 
@@ -854,7 +864,7 @@ def getLastImageDataFolderPath()-> str:
 def drainMlToPortSpeed(ml: float,port: int, speed:int):
     global pumpDirection
 
-    secondsToDrain, conversionFactor = convertMlToSeconds(ml)
+    secondsToDrain, conversionFactor = convertMlToSeconds(ml,speed)
     logging.info("mlToDrain = " + str(ml))
     logging.info("secondsToDrain = " + str(secondsToDrain))
 

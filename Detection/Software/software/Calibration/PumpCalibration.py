@@ -1,60 +1,63 @@
 import time
 import pandas as pd
+import asyncio
 
 
-#from software.Drivers.WeightMixer import WeightMixerDriver as WeightDriver
+from software.Drivers.WeightMixer import WeightMixerDriver as WeightDriver
 from software.API.FastAPI.BeltDrainLLE import LLEBeltDrainProcedures as LLEProc
 
 
 def pump_calibration(port: int, speed: int, initial_volume: int, repetitions: int,pumping_time: int, results_file:str):
 
     #r = requests.get('http://127.0.0.1:8000/pumpFromPort/'+str(port)+'/'+str(initial_volume))
-    LLEProc.pumpMlFromPort(initial_volume,port,0)
+    asyncio.run(LLEProc.pumpMlFromPort(initial_volume,port,0))
 
     # Start Weigh (tares the weight)
-    # WeightDriver.start_Weight()
+    WeightDriver.start_Weight()
+    time.sleep(5)
 
-    # tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
-    # while not ((tare or scale_stable) and scale_on):
-    #    time.sleep(1)
-    #    print("Not ready to weigh")
-    #    tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
+    tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
+    while not ((tare or scale_stable) and scale_on):
+       time.sleep(1)
+       print("Not ready to weigh")
+       tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
     print("Ready to weigh!")
+
 
     rows_list = []
     weightMeasure = 0
 
     for i in range(repetitions):
         #Drain for a specific amount of time
-        LLEProc.drainTimeToPort(pumping_time,port,speed)
+        asyncio.run(LLEProc.drainTimeToPort(pumping_time,port,speed))
 
         #Measure weight
-        # tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
-        # while not ((tare or scale_stable) and scale_on):
-        #     time.sleep(1)
-        #     print("Not ready to weigh")
-        #     tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
-        # print("Taking weight measurement and saving it")
-        # weightMeasure = WeightDriver.get_Weight_Value()
+        tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
+        while not ((tare or scale_stable) and scale_on):
+            time.sleep(1)
+            print("Not ready to weigh")
+            tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
+        print("Taking weight measurement and saving it")
+        weightMeasure = WeightDriver.get_Weight_Value()
 
         rowDict = {'PumpSpeed': speed, 'Pumped time': pumping_time, 'Weight': weightMeasure}
         rows_list.append(rowDict)
 
     column_names = ['ExpectedVolume', 'Pumped time', 'Weight']
     results = pd.DataFrame(rows_list, columns=column_names)
+    results = results.apply(pd.to_numeric)
     results.to_csv(results_file, index=False)
 
-    # tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
-    # while not ((tare or scale_stable) and scale_on):
-    #     time.sleep(1)
-    #     print("Not ready to weigh")
-    #     tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
-
+    tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
+    while not ((tare or scale_stable) and scale_on):
+        time.sleep(1)
+        print("Not ready to weigh")
+        tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
+    weightMeasure = WeightDriver.get_Weight_Value()
     print("Draining last part")
-    # weightMeasure = WeightDriver.get_Weight_Value()
     print("Before final volume", weightMeasure)
 
-    LLEProc.drainMlToPortSpeed(500, 1, 255)
+    #asyncio.run(LLEProc.drainMlToPortSpeed(20, 1, 255))
 
 
     average_volume_pumped = results['Weight'][0]
@@ -66,20 +69,23 @@ def pump_calibration(port: int, speed: int, initial_volume: int, repetitions: in
 
     conversion_factor = pumping_time/average_volume_pumped
 
+    print("Conversion factor: " + str(conversion_factor))
+
     with open('./conversion'+str(speed)+'.txt', "w") as counterFile:
         counterFile.write(str(conversion_factor))
 
-def pump_calibration_check(port: int,volume: int, speed: int, repetitions: int,check_file :str):
-    LLEProc.pumpMlFromPort(volume, port, 0)
+def pump_calibration_check(port: int,volume: int, volume_step:int, speed: int, repetitions: int,check_file :str):
+    print(asyncio.run(LLEProc.pumpMlFromPort(volume, port, 0)))
 
     # Start Weigh (tares the weight)
-    # WeightDriver.start_Weight()
+    WeightDriver.start_Weight()
+    time.sleep(5)
 
-    # tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
-    # while not ((tare or scale_stable) and scale_on):
-    #    time.sleep(1)
-    #    print("Not ready to weigh")
-    #    tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
+    tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
+    while not ((tare or scale_stable) and scale_on):
+       time.sleep(1)
+       print("Not ready to weigh")
+       tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
     print("Ready to weigh!")
 
     rows_list = []
@@ -87,22 +93,23 @@ def pump_calibration_check(port: int,volume: int, speed: int, repetitions: int,c
 
     for i in range(repetitions):
         # Drain a specific volume
-        LLEProc.drainMlToPortSpeed(volume, port, speed)
+        asyncio.run(LLEProc.drainMlToPortSpeed(volume_step, port, speed))
 
         # Measure weight
-        # tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
-        # while not ((tare or scale_stable) and scale_on):
-        #     time.sleep(1)
-        #     print("Not ready to weigh")
-        #     tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
-        # print("Taking weight measurement and saving it")
-        # weightMeasure = WeightDriver.get_Weight_Value()
+        tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
+        while not ((tare or scale_stable) and scale_on):
+            time.sleep(1)
+            print("Not ready to weigh")
+            tare, scale_on, scale_stable, scale_power_on, scale_overload = WeightDriver.get_Weight_Status()
+        print("Taking weight measurement and saving it")
+        weightMeasure = WeightDriver.get_Weight_Value()
 
-        rowDict = {'PumpSpeed': speed, 'Pumped volume': volume, 'Weight': weightMeasure}
+        rowDict = {'PumpSpeed': speed, 'Pumped volume': volume, 'Weight': weightMeasure,'Volume_step':volume_step}
         rows_list.append(rowDict)
 
-    column_names = ['ExpectedVolume', 'Pumped volume', 'Weight']
+    column_names = ['PumpSpeed', 'Pumped volume', 'Weight','Volume_step']
     results = pd.DataFrame(rows_list, columns=column_names)
+    results = results.apply(pd.to_numeric)
     results.to_csv(check_file, index=False)
 
     average_volume_pumped = results['Weight'][0]
@@ -116,8 +123,9 @@ def pump_calibration_check(port: int,volume: int, speed: int, repetitions: int,c
 
 
 def main():
-    pump_calibration(port = 1,speed=255,initial_volume=10,repetitions=3,pumping_time=10,results_file='pumpingCalibration')
-    pump_calibration_check(port=1,volume=10,speed=255,repetitions=3,check_file="pumpingCalibrationCheck")
+    pump_calibration(port = 1,speed=50,initial_volume=0,repetitions=20,pumping_time=200,results_file='pumpingCalibration50.csv')
+    #pump_calibration(port=1, speed=255, initial_volume=1100, repetitions=4, pumping_time=240,results_file='pumpingCalibration.csv')
+    #pump_calibration_check(port=1,volume=500,speed=255,volume_step=100,repetitions=4,check_file="pumpingCalibrationCheck.csv")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ from fastapi import  FastAPI
 from pydantic import BaseModel,Field
 
 
-from Drivers.DiaphragmPumpCmd import DiaphragmPumpCmdDriver as PumpDriver
+from software.Drivers.DiaphragmPumpCmd import DiaphragmPumpCmdDriver as PumpDriver
 
 
 class Status(Enum):

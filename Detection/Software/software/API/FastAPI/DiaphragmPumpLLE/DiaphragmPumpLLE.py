@@ -104,3 +104,9 @@ async def do_setSpeed(speed: int):
 async def do_run(settings: PumpSettings):
     pump.set(settings)
     return StatusResponse(status=pump.status)
+
+def main():
+    uvicorn.run("software.API.FastAPI.DiaphragmPumpLLE.DiaphragmPumpLLE:app", host='0.0.0.0', port=8000)
+
+if __name__ == "__main__":
+    main()

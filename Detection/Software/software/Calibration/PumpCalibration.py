@@ -11,6 +11,7 @@ def pump_calibration(port: int, speed: int, initial_volume: int, repetitions: in
 
     #r = requests.get('http://127.0.0.1:8000/pumpFromPort/'+str(port)+'/'+str(initial_volume))
     asyncio.run(LLEProc.pumpMlFromPort(initial_volume,port,0))
+    time.sleep(2)
 
     # Start Weigh (tares the weight)
     WeightDriver.start_Weight()
@@ -123,9 +124,9 @@ def pump_calibration_check(port: int,volume: int, volume_step:int, speed: int, r
 
 
 def main():
-    pump_calibration(port = 1,speed=50,initial_volume=0,repetitions=20,pumping_time=200,results_file='pumpingCalibration50.csv')
+    pump_calibration(port = 1,speed=130,initial_volume=1,repetitions=5,pumping_time=100,results_file='pumpingCalibration130.csv')
     #pump_calibration(port=1, speed=255, initial_volume=1100, repetitions=4, pumping_time=240,results_file='pumpingCalibration.csv')
-    #pump_calibration_check(port=1,volume=500,speed=255,volume_step=100,repetitions=4,check_file="pumpingCalibrationCheck.csv")
+    pump_calibration_check(port=1,volume=0,speed=130,volume_step=100,repetitions=2,check_file="pumpingCalibrationCheck130.csv")
 
 
 if __name__ == "__main__":

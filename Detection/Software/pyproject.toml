@@ -21,6 +21,8 @@ requests = "^2.31.0"
 [tool.poetry.scripts]
 lle-fastapi = "software.API.FastAPI.BeltDrainLLE.BeltDrainLLE:main"
 pump-calibration = "software.Calibration.PumpCalibration:main"
+interface-calibration = "software.Calibration.InterfaceCalibration:main"
+drain-out = "software.Calibration.DrainOut:main"
 
 [build-system]
 requires = ["poetry-core"]

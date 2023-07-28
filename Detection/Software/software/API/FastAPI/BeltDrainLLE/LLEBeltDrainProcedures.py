@@ -73,9 +73,12 @@ def calculateVolumeFulstrum(initialVolume:float,tubingVolume:float,r:float,delta
     return v*1000000+initialVolume+tubingVolume
 
 def calculateVolumeRegression(interfacePosition:float):
-    squareConstant = 0.0435
-    linearConstant = 4.4515
-    bias = 253.74
+    # squareConstant = 0.0435  # FISC March 2023
+    # linearConstant = 4.4515
+    # bias = 253.74
+    squareConstant = 0.0517  # FISC August 2023
+    linearConstant = 3.8428
+    bias = 264.09
     squareTerm = (interfacePosition*interfacePosition)*squareConstant
     linearTerm = interfacePosition*linearConstant
 
@@ -106,6 +109,14 @@ def convertMlToSeconds(mlToDrain: float,speed: int)-> float:
             return mlToDrain*conversion, conversion
     elif speed == 50:
         with open('./conversion50.txt', "r") as conversionFile:
+            conversion = float(conversionFile.read())
+            return mlToDrain*conversion, conversion
+    elif speed == 100:
+        with open('./conversion100.txt', "r") as conversionFile:
+            conversion = float(conversionFile.read())
+            return mlToDrain*conversion, conversion
+    elif speed == 130:
+        with open('./conversion130.txt', "r") as conversionFile:
             conversion = float(conversionFile.read())
             return mlToDrain*conversion, conversion
 
@@ -528,14 +539,14 @@ async def drainToLowestDetectionPoint(port: int, interfacePosition: float)->(int
         logging.info("Already at or beyond lowest detection point")
         return port, mlToDrain, 0, 0, False, "Already at or beyond lowest detection point"
 
-    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain,50)
+    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain,100)
 
     logging.info("interfacePosition = " + str(interfacePosition))
     logging.info("mlToDrain = " + str(mlToDrain))
     logging.info("secondsToDrain = " + str(secondsToDrain))
-    logging.info("pumpSpeed = " + str(50))
+    logging.info("pumpSpeed = " + str(100))
 
-    DrainDriver.drainSpeed(50)
+    DrainDriver.drainSpeed(100)
     await asyncio.sleep(secondsToDrain)  # 66 around 100ml
     DrainDriver.stopDraining()
 
@@ -554,12 +565,12 @@ async def drainLowerPhase(port : int, interfacePosition : float, tubingSensor : 
         DrainDriver.changePumpDirection()
         pumpDirection = not pumpDirection
 
-    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain,50)
+    secondsToDrain, conversionFactor = convertMlToSeconds(mlToDrain,100)
 
     logging.info("interfacePosition = " + str(interfacePosition))
     logging.info("mlToDrain = " + str(mlToDrain))
     logging.info("secondsToDrain = " + str(secondsToDrain))
-    logging.info("pumpSpeed = " + str(50))
+    logging.info("pumpSpeed = " + str(100))
 
     start = 0
     folderPath = None
@@ -602,7 +613,7 @@ async def drainLowerPhase(port : int, interfacePosition : float, tubingSensor : 
     currentTime = loop.time()
 
     #Start pump at the slowest speed and wait for secondsToDrain
-    DrainDriver.drainSpeed(50)
+    DrainDriver.drainSpeed(100)
     while((currentTime - startTime ) <= secondsToDrain):
 
         if bottomSensor and ((currentTime - startTime) >= secondsToDrain*0.75):
@@ -861,15 +872,12 @@ def getLastImageDataFolderPath()-> str:
     imageFolderPath = folderPath + '/'+ imageFolderName
     return imageFolderPath
 
-def drainMlToPortSpeed(ml: float,port: int, speed:int):
+async def drainMlToPortSpeed(ml: float,port: int, speed:int):
     global pumpDirection
 
     secondsToDrain, conversionFactor = convertMlToSeconds(ml,speed)
     logging.info("mlToDrain = " + str(ml))
     logging.info("secondsToDrain = " + str(secondsToDrain))
-
-    if speed != 255:
-        secondsToDrain = secondsToDrain*(255/speed)
 
     moveValveToPort(port)
     if not pumpDirection:
@@ -877,7 +885,7 @@ def drainMlToPortSpeed(ml: float,port: int, speed:int):
         pumpDirection = not pumpDirection
 
     DrainDriver.drainSpeed(speed)
-    time.sleep(secondsToDrain)#66 around 100ml
+    await asyncio.sleep(secondsToDrain)#66 around 100ml
     DrainDriver.stopDraining()
     #DrainDriver.setMlPerDrainStep(mlToDrain)
     #DrainDriver.drainStep()

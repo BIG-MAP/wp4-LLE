@@ -41,7 +41,7 @@ def tubing_calibration(port:int,volume:float):
 
     input("Check interface position and volume results and press enter")
 
-    asyncio.run(LLEProc.drainLowerPhase(port,interfacePosition,True,False))
+    asyncio.run(LLEProc.drainLowerPhase(port,interfacePosition+5,True,False))
 
     print("Check tubing sensor output")
 

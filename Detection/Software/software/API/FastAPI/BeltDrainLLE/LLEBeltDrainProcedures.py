@@ -619,7 +619,7 @@ async def drainLowerPhase(port : int, interfacePosition : float, tubingSensor : 
         if bottomSensor and ((currentTime - startTime) >= secondsToDrain*0.75):
             pass
 
-        if tubingSensor and ((currentTime - startTime) >= secondsToDrain*0.75):
+        if tubingSensor and ((currentTime - startTime) >= secondsToDrain*0.60):
 
             result = TubingSensorDriver.takeMeasurement()
 

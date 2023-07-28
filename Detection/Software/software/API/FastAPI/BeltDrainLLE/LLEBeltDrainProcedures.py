@@ -76,9 +76,9 @@ def calculateVolumeRegression(interfacePosition:float):
     # squareConstant = 0.0435  # FISC March 2023
     # linearConstant = 4.4515
     # bias = 253.74
-    squareConstant = 0.0517  # FISC August 2023
-    linearConstant = 3.8428
-    bias = 264.09
+    squareConstant = 0.0519  # FISC August 2023
+    linearConstant = 3.798
+    bias = 258.42
     squareTerm = (interfacePosition*interfacePosition)*squareConstant
     linearTerm = interfacePosition*linearConstant
 

@@ -23,6 +23,7 @@ lle-fastapi = "software.API.FastAPI.BeltDrainLLE.BeltDrainLLE:main"
 pump-calibration = "software.Calibration.PumpCalibration:main"
 interface-calibration = "software.Calibration.InterfaceCalibration:main"
 drain-out = "software.Calibration.DrainOut:main"
+fill-in = "software.Calibration.FillIn:main"
 
 [build-system]
 requires = ["poetry-core"]

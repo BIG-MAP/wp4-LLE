@@ -3,7 +3,7 @@ import time
 import os
 
 if os.name == 'nt':
-    comPort = "COM15"#COM depends on computer, only for debugging 
+    comPort = "COM9"#COM depends on computer, only for debugging 
 else:
     comPort = '/dev/ttyUSB0'
 

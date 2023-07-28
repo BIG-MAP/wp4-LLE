@@ -74,7 +74,7 @@ def interface_volume_calibration(port: int, initial_volume: float,repetitions:in
     results.to_csv(results_file, index=False)
 
 def main():
-    interface_volume_calibration(port=1,initial_volume=400,repetitions=5,volume_step=300,results_file="interface_calibration.csv")
+    interface_volume_calibration(port=1,initial_volume=2500,repetitions=5,volume_step=300,results_file="interface_calibration.csv")
 
 
 if __name__ == "__main__":

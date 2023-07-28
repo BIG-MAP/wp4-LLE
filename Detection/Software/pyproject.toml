@@ -24,6 +24,7 @@ pump-calibration = "software.Calibration.PumpCalibration:main"
 interface-calibration = "software.Calibration.InterfaceCalibration:main"
 drain-out = "software.Calibration.DrainOut:main"
 fill-in = "software.Calibration.FillIn:main"
+tubing-test = "software.Calibration.TubingCalibration:main"
 
 [build-system]
 requires = ["poetry-core"]

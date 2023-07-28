@@ -39,7 +39,7 @@ lowerPhaseDrained = False
 pumpDirection = False
 conversionFactor = 1/1.60425 #1/1.5 #66/100
 liquidType = LiquidType.ethyl
-lowestDetectionPoint = 300
+lowestDetectionPoint = 400
 
 
 #Driver Initialization

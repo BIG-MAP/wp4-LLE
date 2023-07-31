@@ -6,7 +6,7 @@ from datetime import datetime
 cap = None
 
 if os.name == 'nt':
-    cameraDev = 0
+    cameraDev = 1
 else:
     cameraDev = '/dev/video0'
 

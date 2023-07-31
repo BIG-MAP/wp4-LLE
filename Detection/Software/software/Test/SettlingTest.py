@@ -23,7 +23,7 @@ def settling_test(settlingTime:int,scanInterval:int):
     check_finished()
 
 def main():
-    settling_test(settlingTime=900,scanInterval=200)
+    settling_test(settlingTime=300000,scanInterval=3600)
 
 
 if __name__ == "__main__":

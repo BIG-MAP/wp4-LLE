@@ -5,61 +5,11 @@ import logging
 import sys
 import glob
 import serial
+from software.Drivers.Serial_find import find_port
 
-deviceID = "0,0000000-0000-0000-0000-00000000001;" 
+deviceID = "0,0000000-0000-0000-0000-00000000001;"
 
-if os.name == 'nt':
-    comPort = "COM3"
-else:
-    comPort = '/dev/ttyUSB0'
-
-def getAvailableSerialPorts():
-    """ Lists serial port names
-
-        :raises EnvironmentError:
-            On unsupported or unknown platforms
-        :returns:
-            A list of the serial ports available on the system
-    """
-    if sys.platform.startswith('win'):
-        ports = ['COM%s' % (i + 1) for i in range(256)]
-    elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
-        # this excludes your current terminal "/dev/tty"
-        ports = glob.glob('/dev/tty[A-Za-z]*')
-    elif sys.platform.startswith('darwin'):
-        ports = glob.glob('/dev/tty.*')
-    else:
-        raise EnvironmentError('Unsupported platform')
-
-    result = []
-    for port in ports:
-        try:
-            s = serial.Serial(port)
-            s.close()
-            result.append(port)
-        except (OSError, serial.SerialException):
-            pass
-    return result
-
-serial_Ports = getAvailableSerialPorts()
-print(serial_Ports)
-
-found = False
-for port in serial_Ports:
-    print(port)
-    s = serial.Serial(port=port, baudrate=115200, timeout=2)
-    s.write(bytes('0;', 'utf-8'))
-    getData= s.read_until(';')
-    s.write(bytes('0;', 'utf-8'))
-    getData= s.read_until(';')
-    data = getData.decode('utf-8').rstrip()
-    print(data)
-    s.close()
-    if data == deviceID:
-        print("Device Match")
-        found = True
-        comPort = port
-        break
+found, comPort=find_port(deviceID)
 
 if found == False:
     print("Device Id not found")

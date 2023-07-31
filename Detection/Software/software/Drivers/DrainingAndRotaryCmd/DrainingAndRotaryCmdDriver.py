@@ -6,109 +6,52 @@ import logging
 import sys
 import glob
 import serial
+from software.Drivers.Serial_find import find_port
 
+deviceID = "0,0000000-0000-0000-0000-00000000000;"
 
-deviceID = "0,0000000-0000-0000-0000-00000000000;" 
+found, comPort = find_port(deviceID)
 
-
-def getAvailableSerialPorts():
-    """ Lists serial port names
-
-        :raises EnvironmentError:
-            On unsupported or unknown platforms
-        :returns:
-            A list of the serial ports available on the system
-    """
-    if sys.platform.startswith('win'):
-        ports = ['COM%s' % (i + 1) for i in range(256)]
-    elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
-        # this excludes your current terminal "/dev/tty"
-        ports = glob.glob('/dev/tty[A-Za-z]*')
-    elif sys.platform.startswith('darwin'):
-        ports = glob.glob('/dev/tty.*')
-    else:
-        raise EnvironmentError('Unsupported platform')
-
-    result = []
-    for port in ports:
-        try:
-            s = serial.Serial(port)
-            s.close()
-            result.append(port)
-        except (OSError, serial.SerialException):
-            pass
-    return result
-
-serial_Ports = getAvailableSerialPorts()
-print(serial_Ports)
-
-found = False
-for port in serial_Ports:
-    print(port)
-    s = serial.Serial(port=port, baudrate=115200, timeout=2)
-    s.write(bytes('0;', 'utf-8'))
-    getData= s.read_until(';')
-    s.write(bytes('0;', 'utf-8'))
-    getData= s.read_until(';')
-    data = getData.decode('utf-8').rstrip()
-    print(data)
-    s.close()
-    if data == deviceID:
-        print("Device Match")
-        found = True
-        comPort = port
-        break
-
-if found == False:
-    print("Device Id not found")
-    exit()
-
-# if os.name == 'nt':
-#     comPort = "COM21"
-# else:
-#     comPort = '/dev/ttyUSB0'
-
-_current_port_id = 1
-
-arduino = PyCmdMessenger.ArduinoBoard(comPort,baud_rate=115200,timeout=10)
-
+arduino = PyCmdMessenger.ArduinoBoard(comPort, baud_rate=115200, timeout=10)
 
 # List of command names (and formats for their associated arguments). These must
 # be in the same order as in the sketch.
-commands = [["kWatchdog","s"],
-            ["kAcknowledge","s"],
-            ["kError","s"],
-            ["kDrainMl",""],
-            ["kSetMlPerDrain","f"],
-            ["kSetMl2MilisecondsMultiplier","f"],
-            ["kChangePumpDirection",""],
-            ["kMoveToNextPort",""],
-            ["kMoveToHome",""],
-            ["kGetPortNumber",""],
-            ["kGetPortNumberResult","i"],
-            ["kDrainSpeed","i"],
-            ["kStopPump",""],
-            ["kMoveToLastPort",""]]
-            #["kGetSensorReading",""],
-            #["kGetSensorReadingResult","ffffffffffffffffff"],
-            #["kGetSensorReadingResultRaw","IIIIIIIIIIIIIIIIII"]]
+commands = [["kWatchdog", "s"],
+            ["kAcknowledge", "s"],
+            ["kError", "s"],
+            ["kDrainMl", ""],
+            ["kSetMlPerDrain", "f"],
+            ["kSetMl2MilisecondsMultiplier", "f"],
+            ["kChangePumpDirection", ""],
+            ["kMoveToNextPort", ""],
+            ["kMoveToHome", ""],
+            ["kGetPortNumber", ""],
+            ["kGetPortNumberResult", "i"],
+            ["kDrainSpeed", "i"],
+            ["kStopPump", ""],
+            ["kMoveToLastPort", ""]]
+# ["kGetSensorReading",""],
+# ["kGetSensorReadingResult","ffffffffffffffffff"],
+# ["kGetSensorReadingResultRaw","IIIIIIIIIIIIIIIIII"]]
 
 
 # Initialize the messenger
-comm = PyCmdMessenger.CmdMessenger(arduino,commands)
-#Wait for arduino to come up
+comm = PyCmdMessenger.CmdMessenger(arduino, commands)
+# Wait for arduino to come up
 msg = comm.receive()
 print(msg)
+
 
 def drainSpeed(speed: int) -> int:
     """Function changes the direction of the draining pump."""
 
-    comm.send("kDrainSpeed",speed)
+    comm.send("kDrainSpeed", speed)
 
     msg = comm.receive()
     logging.info(msg[1])
 
     return 0
+
 
 def stopDraining() -> int:
     """Function changes the direction of the draining pump."""
@@ -120,9 +63,10 @@ def stopDraining() -> int:
 
     return 0
 
+
 def changePumpDirection() -> int:
     """Function changes the direction of the draining pump."""
-    
+
     comm.send("kChangePumpDirection")
 
     # Receive.
@@ -151,6 +95,7 @@ def setMlPerDrainStep(mlPerDrainStep: float) -> int:
 
     return 0
 
+
 def setMl2MilisecondsMultiplier(ml2MilisecondsMultiplier: float) -> int:
     """Function sets the conversion between ml and miliseconds in the pump controller."""
     comm.send("kSetMl2MilisecondsMultiplier", ml2DegreeMultiplier)
@@ -159,6 +104,7 @@ def setMl2MilisecondsMultiplier(ml2MilisecondsMultiplier: float) -> int:
     logging.info("Changed ml to miliseconds multiplier to " + str(msg[1]))
 
     return 0
+
 
 def move_next() -> int:
     global _current_port_id
@@ -169,10 +115,11 @@ def move_next() -> int:
     msg = comm.receive()
 
     logging.info("Changed to port  " + str(msg[1]))
- 
+
     _current_port_id = msg[1][0]
 
     return _current_port_id
+
 
 def move_last() -> int:
     global _current_port_id
@@ -183,10 +130,11 @@ def move_last() -> int:
     msg = comm.receive()
 
     logging.info("Changed to port  " + str(msg[1]))
- 
+
     _current_port_id = msg[1][0]
 
     return _current_port_id
+
 
 def move_home() -> int:
     global _current_port_id
@@ -199,14 +147,15 @@ def move_home() -> int:
     logging.info("Changed to home port  " + str(msg[1]))
 
     _current_port_id = msg[1][0]
-    
+
     return _current_port_id
+
 
 def current_port() -> int:
     global _current_port_id
 
     comm.send("kGetPortNumber")
-    
+
     msg = comm.receive()
 
     logging.info("Currently on port  " + str(msg[1]))
@@ -215,12 +164,10 @@ def current_port() -> int:
 
     return _current_port_id
 
-
-
 ##Debug
-#logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
-#move_home()
+# move_home()
 # print(current_port())
 # time.sleep(2)
 # move_next() 
@@ -234,10 +181,10 @@ def current_port() -> int:
 # time.sleep(2)
 # drainStep()
 # time.sleep(2)
-#changePumpDirection()
-#drainSpeed(255)
-#time.sleep(33)#66 around 100ml
-#stopDraining()
+# changePumpDirection()
+# drainSpeed(255)
+# time.sleep(33)#66 around 100ml
+# stopDraining()
 # move_next() 
 # drainSpeed(255)
 # time.sleep(300)

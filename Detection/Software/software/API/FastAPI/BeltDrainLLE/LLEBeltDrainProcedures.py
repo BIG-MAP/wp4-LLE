@@ -332,14 +332,14 @@ def findInterface(dataLight, smoothWindowSize: int, smoothProminence: float, gra
                         indices = np.where((peaksGrad2 < peaks[-1]))
                         peaksGrad2Cut = peaksGrad2[indices]
                 
-                    #if len(peaksGrad2Cut) > 0:
-                    #    interface = peaksGrad2Cut[-1]
-                    #    if channel in ["A","B","C","D","E","F"]:
-                    #        interface -= 10
-                    #    interfaces.append(interface) 
-                    #    interfaceFound = True     
-                    #elif len(inversePeaks)> 0:
-                    if len(inversePeaks)> 0:
+                    if len(peaksGrad2Cut) > 0:
+                        interface = peaksGrad2Cut[-1]
+                        if channel in ["A","B","C","D","E","F"]:
+                            interface -= 10
+                        interfaces.append(interface)
+                        interfaceFound = True
+                    elif len(inversePeaks)> 0:
+                    #if len(inversePeaks)> 0:
                         if inversePeaks[0]<peaks[-1]:
                             interface = inversePeaks[0]
                             if channel in ["A","B","C","D","E","F"]:

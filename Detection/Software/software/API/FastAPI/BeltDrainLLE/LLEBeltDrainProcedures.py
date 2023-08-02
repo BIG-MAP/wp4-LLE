@@ -280,7 +280,7 @@ def findInterface(dataLight, smoothWindowSize: int, smoothProminence: float, gra
             #Normalize all channels
             df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(lambda x: x/x.max(), axis=0)
             
-            smoothWindowSize= 3
+            smoothWindowSize = 5
             smoothProminence = 1/15
             inverseSmoothProminence =1/15
             gradientProminence = 1
@@ -386,7 +386,7 @@ def findInterface(dataLight, smoothWindowSize: int, smoothProminence: float, gra
             df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(lambda x: x/x.max(), axis=0)
             
             smoothWindowSize= 3
-            smoothProminence = 1/7
+            smoothProminence = 1/2
             #inverseSmoothProminence =1/15
             #gradient2Prominence=1/3
             offset= 2

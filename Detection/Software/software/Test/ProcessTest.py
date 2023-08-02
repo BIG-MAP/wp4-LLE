@@ -97,7 +97,8 @@ def extraction_process(iterations:int, liquid_type: str, input_port: int, waste_
 
 
 def main():
-    extraction_process(iterations=3,liquid_type="ethyl",input_port=1,waste_port_ethyl=3,waste_port_dichloro=4,initial_volume=4,extra_ml_ethyl=2,test_mode=True)
+    extraction_process(iterations=3,liquid_type="ethyl",input_port=1,waste_port_ethyl=3,waste_port_dichloro=4,initial_volume=4,extra_ml_ethyl=9,test_mode=True)
+
 
 
 if __name__ == "__main__":

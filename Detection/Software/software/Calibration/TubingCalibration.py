@@ -7,7 +7,8 @@ from software.API.FastAPI.BeltDrainLLE import LLEBeltDrainProcedures as LLEProc
 def tubing_calibration(port:int,volume:float):
     rows_list = []
 
-    LLEProc.setLiquidType("ethyl")
+    #LLEProc.setLiquidType("ethyl")
+    LLEProc.setLiquidType("dichloro")
 
     stopEvent = asyncio.Event()
     dataLight, dataLightRaw, idN, error = LLEProc.scanFunnel(initialLEDs=4, delta=16, travelDistance=169,
@@ -41,12 +42,12 @@ def tubing_calibration(port:int,volume:float):
 
     input("Check interface position and volume results and press enter")
 
-    asyncio.run(LLEProc.drainLowerPhase(port,interfacePosition+5,True,False))
+    asyncio.run(LLEProc.drainLowerPhase(port,interfacePosition+12,True,False))
 
     print("Check tubing sensor output")
 
 def main():
-    tubing_calibration(port = 1,volume=1000)
+    tubing_calibration(port = 2,volume=1000)
 
 
 if __name__ == "__main__":

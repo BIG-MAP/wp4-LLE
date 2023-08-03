@@ -280,7 +280,7 @@ def findInterface(dataLight, smoothWindowSize: int, smoothProminence: float, gra
             #Normalize all channels
             df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(lambda x: x/x.max(), axis=0)
             
-            smoothWindowSize= 3
+            smoothWindowSize= 5
             smoothProminence = 1/15
             inverseSmoothProminence =1/15
             gradientProminence = 1
@@ -386,9 +386,9 @@ def findInterface(dataLight, smoothWindowSize: int, smoothProminence: float, gra
             df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]] = df[["A","B","C","D","E","F","G","H","I","J","K","L","R","S","T","U","V","W"]].apply(lambda x: x/x.max(), axis=0)
             
             smoothWindowSize= 3
-            smoothProminence = 1/7
+            smoothProminence = 1/2
             #inverseSmoothProminence =1/15
-            #gradient2Prominence=1/3
+            gradient2Prominence=1/3
             offset= 2
     
 
@@ -410,8 +410,20 @@ def findInterface(dataLight, smoothWindowSize: int, smoothProminence: float, gra
                 maxValue = np.max(smooth)
         
                 peaks, _ = sig.find_peaks(smooth, prominence = smoothProminence*maxValue)#1/6
-        
-                if len(peaks)>0:
+                
+                #Find the max value of the gradient2 data to find the peaks
+                maxValue2 = np.max(gradient2)
+                
+                peaksGrad2 , _ =  sig.find_peaks(gradient2, prominence = gradient2Prominence*maxValue2)
+                
+                
+                if len(peaksGrad2)>0:
+                    interface = peaksGrad2[0]+offset    
+                    if channel in ["A","B","C","D","E","F"]:
+                        interface -= 10
+                    interfaces.append(interface)
+                    interfaceFound = True 
+                elif len(peaks)>0:
                     interface = peaks[-1]+offset    
                     if channel in ["A","B","C","D","E","F"]:
                         interface -= 10
@@ -619,7 +631,7 @@ async def drainLowerPhase(port : int, interfacePosition : float, tubingSensor : 
         if bottomSensor and ((currentTime - startTime) >= secondsToDrain*0.75):
             pass
 
-        if tubingSensor and ((currentTime - startTime) >= secondsToDrain*0.60):
+        if tubingSensor and ((currentTime - startTime) >= secondsToDrain*0.5):
 
             result = TubingSensorDriver.takeMeasurement()
 

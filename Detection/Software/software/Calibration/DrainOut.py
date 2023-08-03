@@ -9,7 +9,7 @@ def drainOut(port:int,volume:int):
 
 
 def main():
-    drainOut(1,1000)
+    drainOut(2,2000)
 
 
 if __name__ == "__main__":

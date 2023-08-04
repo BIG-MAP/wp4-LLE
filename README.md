@@ -9,7 +9,7 @@ This folder stores the fabrication files needed to build an Automatic Liquid/liq
 
 Each folder contains the corresponding fabrication files for each component of the main parts.
 
-### Source code
+### Software
 This folder contains all the source code for the LLE API
 
 

@@ -1,0 +1,5 @@
+{"Upper layer material": "Ethyl acetate",
+"Lower layer material": "water-iohp",
+"Distance between photos along belt (mm)": 1,
+"Distance between photos vertical (mm)": 0.99998529,
+"True Interface": 107}

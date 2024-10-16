@@ -1,0 +1,5 @@
+{"Upper layer material": "clear oil",
+"Lower layer material": "water",
+"Distance between photos along belt (mm)": 1,
+"Distance between photos vertical (mm)": 0.99998529,
+"True Interface": 38.4}
